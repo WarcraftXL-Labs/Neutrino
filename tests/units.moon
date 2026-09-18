@@ -24,6 +24,48 @@ t.check "a nested value survives the round trip", round_tripped.b[2] == "y"
 t.check "malformed input returns nil instead of raising",
   (json.try_decode "{oops") == nil
 
+-- encode_pretty writes files a person edits by hand, so the two things that
+-- matter are that the bytes do not move when the data does not, and that what
+-- comes out is still JSON.
+pretty = json.encode_pretty { zebra: 1, apple: 2, middle: { "b", "a" } }
+
+t.check "pretty output is indented rather than one line",
+  (pretty\match "\n") != nil, pretty
+t.check "and its keys are in a stable order",
+  (pretty\find "apple") < (pretty\find "middle") and
+    (pretty\find "middle") < (pretty\find "zebra"), pretty
+t.check "an array keeps the order it was given",
+  (pretty\find '"b"') < (pretty\find '"a"'), pretty
+t.check "and it decodes back to what went in",
+  (json.decode pretty).middle[1] == "b"
+
+-- Lua cannot tell an empty list from an empty map, so the marker has to survive
+-- this encoder as well as cjson's. A settings file whose empty list encoded as
+-- {} would be read back as an object.
+empty_list = json.encode_pretty { items: json.array {} }
+t.check "an empty marked array is still an array",
+  (empty_list\match "%[%]") != nil, empty_list
+
+awkward = 'a "b"\nc'
+t.check "a string with a quote and a newline is escaped",
+  (json.decode json.encode_pretty { text: awkward }).text == awkward
+
+-- `#` is defined on strings, so a version of is_array without a type guard
+-- calls every non-empty string a list - and a caller merging defaults then
+-- replaces the string with an empty table.
+t.check "a string is not an array", (json.is_array "3.3.5.12340") == false
+t.check "nor is a number or nil",
+  (json.is_array 7) == false and (json.is_array nil) == false
+t.check "but a list is", (json.is_array { "a" }) == true
+t.check "and so is an empty marked one", (json.is_array json.array {}) == true
+
+-- A cycle would otherwise recurse until the stack gave out, which reports the
+-- stack rather than the table.
+cycle = {}
+cycle.self = cycle
+t.check "a cycle is refused rather than followed",
+  (pcall json.encode_pretty, cycle) == false
+
 -- ═══════════════════════════════════════════════════════════════════════════
 
 t.section "URL parsing"

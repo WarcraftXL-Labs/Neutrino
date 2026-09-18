@@ -34,7 +34,7 @@ $CefFlavour = "minimal"
 $LuaJitBranch = "v2.1"
 $LuaRocksVersion = "3.11.1"
 
-$Rocks = @("lua-cjson", "luv", "moonscript", "etlua")
+$Rocks = @("lua-cjson", "luv", "moonscript", "etlua", "penlight")
 
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 $DepsDir = Join-Path $RootDir "deps"

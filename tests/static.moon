@@ -119,6 +119,43 @@ t.task "static routes", ->
   t.check "and the route above it is untouched", reachable.status == 404,
     tostring reachable.status
 
+  t.section "Where a path really points"
+
+  fs = Neutrino.fs
+
+  t.check "a path is inside itself", fs.contains "E:/app/static", "E:/app/static"
+  t.check "and a file under it is inside it",
+    fs.contains "E:/app/static", "E:/app/static/css/theme.css"
+  t.check "a sibling with a longer name is not",
+    not fs.contains "E:/app/static", "E:/app/static2/secret"
+  t.check "separators and case do not decide it",
+    fs.contains "E:/app/static", "E:\\APP\\Static\\theme.css"
+  t.check "and a parent is not inside its child",
+    not fs.contains "E:/app/static/css", "E:/app/static"
+
+  -- The case the string check cannot see. A junction inside the served folder
+  -- is an ordinary name on the way in and anywhere at all on the way out, so
+  -- the route has to ask the filesystem where it actually went.
+  os.execute 'cmd /c rmdir "static\\escape" >nul 2>&1'
+  os.execute 'cmd /c mklink /J "static\\escape" "." >nul 2>&1'
+
+  junction = fs.real "static/escape"
+  made = t.check "a junction out of the folder can be made to test with",
+    junction != nil and not fs.contains(fs.real("static"), junction),
+    tostring junction
+
+  if made
+    escaped = server\fetch "neutrino://app/assets/escape/neutrino.lua"
+    t.check "and following it out is forbidden", escaped.status == 403,
+      "#{escaped.status}, #{#escaped.body} bytes"
+
+    -- Without this the check above could pass because the folder stopped
+    -- serving altogether, which would look identical from one assertion.
+    t.check "while the folder itself still serves",
+      (server\fetch "neutrino://app/assets/theme.css").status == 200
+
+  os.execute 'cmd /c rmdir "static\\escape" >nul 2>&1'
+
   t.section "Both shapes at once"
 
   own = server\fetch "neutrino://themed/own/theme.css"

@@ -327,6 +327,31 @@ routes: (router) =>
 
 Inside a task it is awaited; outside one, pass a callback.
 
+## Running things outside the browser
+
+CEF owns the message loop; libuv has one of its own, and nothing ran it. So
+`uv.spawn`, a filesystem watcher and a socket used to register happily and then
+never call back - no error, no warning, silence.
+
+libuv is now pumped from a CEF delayed task, and asked each time when it next
+wants attention. An application that never touches libuv pays nothing: the pump
+stops as soon as there is no work and starts again when there is.
+
+```moon
+uv = Neutrino.uv
+
+-- Runs a converter and hears about it when it finishes.
+uv.spawn "cmd.exe", { args: { "/c", "dir" } }, (code) -> print "exited", code
+
+-- Reloads when a file on disk changes.
+watcher = uv.watch "static", (name) -> print "changed", name
+watcher\close!
+```
+
+Anything driven through `Neutrino.uv` or `async.work` wakes the pump itself.
+Raw libuv used directly is the one case that needs `uv.wake!` afterwards,
+because nothing else can see that it registered anything.
+
 ## Serving files
 
 `static` mounts a directory on a router. The same call whichever router it is
@@ -520,6 +545,8 @@ The native layer and the Lua API around it:
   and `server\fetch` to route a request without a browser
 - static routes, per application or per module, that refuse to leave their
   directory
+- libuv serviced from CEF's loop, so spawning a process, watching a folder
+  and sockets all work
 - a reactive store shared between Lua and the page, driven by `data-`
   directives, with nothing re-rendering
 - widgets: etlua templates rendered into shadow roots, with a small library
@@ -620,15 +647,15 @@ caller stating the path is its own.
 
 ```
 native/src/       C++ layer; neutrino_api.h is the contract with Lua
-src/core/         the engine: app loop, events, async, timers, modules, the
-                  FFI binding and the bridge to it
+src/core/         the engine: app loop, events, async, timers, libuv,
+                  modules, the FFI binding and the bridge to it
 src/browser/      windows, sessions, displays, key names
 src/serve/        the neutrino:// server, its router and static files
 src/system/       the OS: clipboard, shell, single instance
 src/util/         json, paths and files (over penlight), path resolution
 src/ui/           the page: reactive state, directives, widgets
-tests/            units, shell, module, static, ui-layer, widgets, browser,
-                  session, single-instance
+tests/            units, shell, loop, module, static, ui-layer, widgets,
+                  browser, session, single-instance
 docs/             architecture notes and CEF coverage
 tools/            get-deps, build, run, test, package
 static/           assets served over neutrino://, copied into builds

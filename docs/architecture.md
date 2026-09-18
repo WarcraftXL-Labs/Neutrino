@@ -48,9 +48,19 @@ Timers are `CefPostDelayedTask` on the UI thread. A delayed task posted to the
 loop that is already running *is* a timer, so there is no second event loop and
 nothing to integrate between two of them.
 
-luv is pumped only while `async.work` has a job in flight. Anything else built
-on luv — `uv.spawn`, a filesystem watcher, a socket — has to pump for itself, or
-its callbacks never fire. That is a gap, and it is in `todo.md`.
+libuv is the exception: it has a loop of its own and nobody runs it. It is
+serviced from a CEF delayed task — `uv.run "nowait"` drains what is ready, then
+`uv.backend_timeout()` says when to come back, clamped to at most 50 ms so a
+handle libuv would block on indefinitely is still serviced. When the loop
+reports nothing alive and nobody is holding it open, the pump stops entirely, so
+an application that never touches libuv never wakes for it.
+
+The worker pool has to hold the loop open explicitly: a job sitting on another
+thread is not something libuv counts as pending, and the pump would otherwise
+conclude there was nothing to do and stop before the result came back.
+
+What the pump cannot do is notice libuv work registered behind its back, which
+is why `uv.spawn` and `uv.watch` are wrapped rather than left to the caller.
 
 ### What CEF does not deliver on the UI thread
 

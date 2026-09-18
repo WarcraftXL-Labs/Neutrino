@@ -22,6 +22,23 @@ for index = 1, 24
 
 M.NAMED_KEYS = NAMED_KEYS
 
+--- The punctuation keys, by the character itself.
+--
+-- "Ctrl+," is what almost every editor calls its settings shortcut, and a menu
+-- that had to advertise it as "Ctrl+Comma" would be advertising something
+-- nobody types. The named spellings above still work; these are the same keys
+-- written the way they are printed.
+--
+-- "+" is absent and stays absent: the accelerator is split on it, so the key
+-- has to be reached as "Plus".
+PUNCTUATION = {
+  [","]: 0xBC, ["."]: 0xBE, ["-"]: 0xBD, ["="]: 0xBB
+  [";"]: 0xBA, ["/"]: 0xBF, ["\\"]: 0xDC, ["'"]: 0xDE
+  ["["]: 0xDB, ["]"]: 0xDD, ["`"]: 0xC0
+}
+
+M.PUNCTUATION = PUNCTUATION
+
 --- Parses an accelerator into the parts a key event is matched on.
 ---@param accelerator string For example "Ctrl+Shift+I", "F12", "Alt+Left".
 ---@return table|nil spec { key_code, ctrl, shift, alt, meta }, or nil and an error.
@@ -47,6 +64,8 @@ M.parse = (accelerator) ->
           -- Letters and digits share their ASCII value as a virtual key code.
           if (byte >= 65 and byte <= 90) or (byte >= 48 and byte <= 57)
             spec.key_code = byte
+          elseif PUNCTUATION[token]
+            spec.key_code = PUNCTUATION[token]
           else
             return nil, "unrecognised key '#{token}' in '#{accelerator}'"
         else

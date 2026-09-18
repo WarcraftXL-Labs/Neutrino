@@ -68,6 +68,17 @@ t.check "modifiers are parsed",
   spec and spec.ctrl and spec.shift and not spec.alt
 t.check "a letter is parsed", spec and spec.key_code == string.byte "I"
 t.check "a function key is parsed", (keys.parse "F12").key_code == 0x7B
+-- Punctuation written as itself, because that is how a menu prints it.
+comma = keys.parse "Ctrl+,"
+t.check "punctuation is parsed as the character",
+  comma != nil and comma.key_code == 0xBC and comma.ctrl == true
+t.check "and agrees with its named spelling",
+  comma != nil and comma.key_code == (keys.parse "Ctrl+Comma").key_code
+
+-- Split on "+", so the key itself can only be reached by name.
+t.check "plus is still only reachable by name",
+  (keys.parse "Ctrl+Plus") != nil
+
 t.check "nonsense is rejected", (keys.parse "Ctrl+Nope") == nil
 
 keydown = {

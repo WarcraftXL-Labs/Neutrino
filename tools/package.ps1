@@ -25,8 +25,17 @@ param(
     # Name of the produced executable and its folder.
     [string]$Name = "NeutrinoApp",
 
-    # The application's entry point, a .moon or .lua file under the repo root.
+    # The application's entry point, a .moon or .lua file.
     [string]$Entry = "",
+
+    # Source trees belonging to the application, compiled into app\ beside the
+    # framework. An application of any size has one; a one-file example has
+    # none. .moon is compiled, .lua is copied as it is.
+    [string[]]$AppSrc = @(),
+
+    # Folders copied into the package root as they are: static assets, data,
+    # anything the application reads at runtime.
+    [string[]]$Include = @(),
 
     # Where to put the result. Defaults to build/<Name>.
     [string]$OutDir = "",
@@ -78,7 +87,12 @@ if (-not $Entry) {
     exit 1
 }
 
-$EntryPath = Join-Path $RootDir $Entry
+# Relative to the repository when it is relative, taken as it is when it is
+# not: an application that vendors Neutrino lives outside this tree and its
+# paths should not have to be written as though it did not.
+$EntryPath = if ([System.IO.Path]::IsPathRooted($Entry)) { $Entry }
+             else { Join-Path $RootDir $Entry }
+
 if (-not (Test-Path $EntryPath)) {
     Write-Host "Entry point not found: $EntryPath" -ForegroundColor Red
     exit 1
@@ -116,6 +130,41 @@ Pop-Location
 if ($compileFailed) {
     Write-Host "MoonScript compilation failed." -ForegroundColor Red
     exit 1
+}
+
+# The application's own trees, beside the framework in app\. Compiled from
+# inside each tree for the same reason: moonc would otherwise recreate the
+# path it was given underneath app\.
+foreach ($tree in $AppSrc) {
+    $treePath = if ([System.IO.Path]::IsPathRooted($tree)) { $tree }
+                else { Join-Path $RootDir $tree }
+
+    if (-not (Test-Path $treePath)) {
+        Write-Host "Source tree not found: $treePath" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host "  Source: $tree" -ForegroundColor DarkGray
+
+    if (Get-ChildItem -Path $treePath -Filter "*.moon" -Recurse) {
+        Push-Location $treePath
+        & $LuaExe $MooncFile -t "$AppDir" .
+        $treeFailed = $LASTEXITCODE -ne 0
+        Pop-Location
+        if ($treeFailed) {
+            Write-Host "MoonScript compilation failed for $tree." -ForegroundColor Red
+            exit 1
+        }
+    }
+
+    # Plain Lua alongside it - a vendored library, or a generated file - keeps
+    # its position in the tree, which is what its require paths assume.
+    Get-ChildItem -Path $treePath -Filter "*.lua" -Recurse | ForEach-Object {
+        $relative = $_.FullName.Substring($treePath.Length).TrimStart('\', '/')
+        $target = Join-Path $AppDir $relative
+        New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null
+        Copy-Item -Force -Path $_.FullName -Destination $target
+    }
 }
 
 Write-Host "  MoonScript: $Entry" -ForegroundColor DarkGray
@@ -170,6 +219,25 @@ $StaticSrc = Join-Path $RootDir "static"
 if (Test-Path $StaticSrc) {
     Write-Host "  Static assets" -ForegroundColor DarkGray
     Copy-Item -Recurse -Force -Path $StaticSrc -Destination $OutDir
+}
+
+# The application's own folders, on top. A folder of the same name replaces the
+# framework's rather than merging with it, which is what an application that
+# builds its own static/ expects.
+foreach ($folder in $Include) {
+    $folderPath = if ([System.IO.Path]::IsPathRooted($folder)) { $folder }
+                  else { Join-Path $RootDir $folder }
+
+    if (-not (Test-Path $folderPath)) {
+        Write-Host "Included folder not found: $folderPath" -ForegroundColor Red
+        exit 1
+    }
+
+    $target = Join-Path $OutDir (Split-Path $folderPath -Leaf)
+    if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+
+    Write-Host "  Include: $(Split-Path $folderPath -Leaf)" -ForegroundColor DarkGray
+    Copy-Item -Recurse -Force -Path $folderPath -Destination $OutDir
 }
 
 # --- The executable ---------------------------------------------------------

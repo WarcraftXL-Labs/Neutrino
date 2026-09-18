@@ -42,7 +42,6 @@
 ## Framework
 
 - [ ] Asynchronous file reads for static routes, now that there is a pump
-- [ ] Logging to a file — a packaged app has no console, so `print` goes nowhere
 - [ ] Executable icon in `package.ps1` — needs a resource editor
 - [ ] Trim the CEF runtime from the package (407 MB)
 - [ ] An example application; `examples/` is empty until the API settles

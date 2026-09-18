@@ -327,6 +327,33 @@ routes: (router) =>
 
 Inside a task it is awaited; outside one, pass a callback.
 
+## Logging
+
+A packaged application has no console. `print` goes nowhere, and so does every
+`[neutrino] ...` line the framework writes when a handler raises - which is
+exactly the information missing when a build misbehaves on someone else's
+machine.
+
+```moon
+log = Neutrino.log
+
+log.open log.app_data_path "MPQBrowser"
+log.capture!
+
+log.info "opened %s in %d ms", path, elapsed
+print "this lands in the file too"
+```
+
+`capture` is the half that matters: a logging API only helps code written after
+it, while capturing `print` and `io.stderr` collects what the framework and
+every line already written produce. `log.restore!` puts both back.
+
+The file lives under the user's local app data by default, because a packaged
+application is often installed somewhere it cannot write. It rotates at 2 MB and
+keeps one backup, so a long-running tool forgets its beginning rather than
+filling a disk, and every line is flushed as it is written - the lines before a
+crash are the ones worth having.
+
 ## Running things outside the browser
 
 CEF owns the message loop; libuv has one of its own, and nothing ran it. So
@@ -547,6 +574,7 @@ The native layer and the Lua API around it:
   directory
 - libuv serviced from CEF's loop, so spawning a process, watching a folder
   and sockets all work
+- logging to a file, capturing `print` and the framework's own diagnostics
 - a reactive store shared between Lua and the page, driven by `data-`
   directives, with nothing re-rendering
 - widgets: etlua templates rendered into shadow roots, with a small library
@@ -652,10 +680,10 @@ src/core/         the engine: app loop, events, async, timers, libuv,
 src/browser/      windows, sessions, displays, key names
 src/serve/        the neutrino:// server, its router and static files
 src/system/       the OS: clipboard, shell, single instance
-src/util/         json, paths and files (over penlight), path resolution
+src/util/         json, paths and files (over penlight), logging
 src/ui/           the page: reactive state, directives, widgets
-tests/            units, shell, loop, module, static, ui-layer, widgets,
-                  browser, session, single-instance
+tests/            units, shell, log, loop, module, static, ui-layer,
+                  widgets, browser, session, single-instance
 docs/             architecture notes and CEF coverage
 tools/            get-deps, build, run, test, package
 static/           assets served over neutrino://, copied into builds

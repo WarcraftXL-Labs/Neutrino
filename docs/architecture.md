@@ -203,6 +203,24 @@ partition. `Module:attach` warns when the two differ rather than letting it be
 discovered later. Per-module isolation is only real in the one-window-per-module
 shape.
 
+### Assets: one mechanism, two shapes
+
+Whether a folder of assets belongs to the application or to a module turned out
+to be the wrong question. The widgets carry their own CSS in their shadow roots,
+so most of what a module would have served no longer exists as a file, and what
+remains - the theme, the fonts, the icons - is genuinely shared.
+
+What was missing was lower down: nothing served a file from disk at all. So
+`static` mounts a directory on *a router*, and which router decides which shape
+it is. `server\static` puts it on the application's origin; a module calls the
+same thing on its own and its assets leave when it does.
+
+The one thing that separates the two is origins. `neutrino://app/` and
+`neutrino://mpq/` are different origins, and while a stylesheet, an image or a
+font crosses that line freely, a `fetch` or a `<script type="module">` does not -
+the scheme is registered CORS_ENABLED, so those need a header. Passive assets
+can live in one shared folder; imported modules are the case to think about.
+
 ### One Server, found rather than passed
 
 The scheme handler is process-wide, so there is one `Server`. `serve.server`
@@ -222,6 +240,27 @@ This is the one piece of HMVC worth having on its own merits. It makes a route
 testable without a window, lets a page's content be computed before the window
 exists, and lets one module consume another's output without knowing it is a
 module - without asking anyone to arrange their code as controllers.
+
+### Letting content near the filesystem
+
+A static route is the only place the framework hands content a path and opens a
+file with it, and the scheme is reachable from any page loaded in a window. So
+the check refuses rather than repairs: a request that tried to leave the
+directory is not a typo, and serving what it "meant" is how a traversal becomes
+a feature.
+
+The order matters. The url is decoded *first* and validated *after*, because the
+reverse - checking for `..` and then decoding `%2e%2e` - is how this bug is
+normally written. Three Windows-specific spellings are refused too: a drive
+letter, a UNC path, and a name ending in a dot or a space, since Windows strips
+those when it opens a file and `index.html.` would otherwise be a second name
+for the same file.
+
+The check was written with all of that in mind and still shipped broken: a
+MoonScript call without parentheses swallowed the `or` that followed it, so the
+second `match` became an argument to the first instead of an alternative to it,
+and the drive-letter arm never ran at all. The suite caught it because it tries
+every spelling rather than one representative one.
 
 ## The UI layer: where state lives
 

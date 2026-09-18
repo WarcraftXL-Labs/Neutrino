@@ -41,6 +41,7 @@
 
 ## Framework
 
+- [ ] Asynchronous file reads for static routes, once there is a luv pump
 - [ ] A luv pump that runs for the process, not only during `async.work` — luv
       callbacks (spawn, fs watchers, sockets) never fire without one
 - [ ] Logging to a file — a packaged app has no console, so `print` goes nowhere
@@ -50,5 +51,3 @@
 - [ ] `customElements.define` for widgets, for a lifecycle and `:defined`
 - [ ] More widgets: tree, table, tabs, menu, dialog
 - [ ] Per-key reactivity below the top level, if a real interface ever needs it
-- [ ] Module assets: a static route under the module's origin, without each
-      module writing its own

@@ -89,9 +89,17 @@ if (Want "cef") {
         }
 
         Step "Extracting CEF"
-        # bsdtar ships with Windows 10 1803 and later, and reads .tar.bz2
-        # directly, so this needs no third-party archiver.
-        Invoke-Native "extracting CEF" { tar -xf $archive -C $CefDir }
+        # bsdtar by full path, not whatever "tar" resolves to. It ships with
+        # Windows 10 1803 and later and reads .tar.bz2, but Git for Windows puts
+        # GNU tar ahead of it on PATH - and GNU tar reads "E:\..." as host:path
+        # and tries to open a network connection to a machine called E.
+        $bsdtar = Join-Path $env:SystemRoot "System32\tar.exe"
+        if (Test-Path $bsdtar) {
+            Invoke-Native "extracting CEF" { & $bsdtar -xf $archive -C $CefDir }
+        } else {
+            # --force-local says the colon is a drive letter, not a host.
+            Invoke-Native "extracting CEF" { tar --force-local -xf $archive -C $CefDir }
+        }
 
         if (-not (Test-Path $CefTarget)) {
             throw "CEF extracted, but $CefName is not there. Check the version."

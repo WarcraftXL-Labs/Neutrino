@@ -184,6 +184,22 @@ app\on "ready", ->
       (t.wait_until -> (window\eval "window.__pushes") == 1),
       "#{window\eval "window.__pushes"} arrived"
 
+    t.section "Running without an element"
+
+    -- What a keyboard shortcut needs: the evaluation a directive gets, with the
+    -- store in scope, from code that is attached to nothing.
+    t.check "an expression reads the store",
+      (window\eval "nui.evaluate('count + 1')") == 12,
+      window\eval "nui.evaluate('count + 1')"
+
+    window\exec_js "nui.run('count = count * 2')"
+    t.check "a statement writes to it, and Lua hears",
+      (t.wait_until -> (state\get "count") == 22), tostring state\get "count"
+
+    t.check "and a scope of its own is in reach as well",
+      (window\eval "nui.evaluate('row.name', { row: { name: 'mpq' } })") == "mpq",
+      window\eval "nui.evaluate('row.name', { row: { name: 'mpq' } })"
+
     t.section "Two-way inputs"
 
     window\exec_js "const note = document.getElementById('note')

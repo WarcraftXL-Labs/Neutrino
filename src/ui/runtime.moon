@@ -12,6 +12,8 @@
 --   nui.signal/effect   the primitives underneath, for code that wants them
 --   nui.bind(root)      wires the data- directives under a root
 --   nui.html(el, html)  replaces content and wires what arrived
+--   nui.run(source)     runs a statement with the store in scope
+--   nui.evaluate(expr)  reads an expression with the store in scope
 --
 -- Reactivity is per top-level key. Writing `tree.nodes[3].open` re-runs every
 -- effect that read `tree`. That is coarse, and for a tool's interface it is
@@ -342,7 +344,13 @@ SOURCE = [==[
 
     // Replaces an element's content with markup from a route and wires it.
     // The parse goes through setHTMLUnsafe so a widget keeps its shadow root.
-    html: (el, markup) => { setHTML(el, markup); bind(el); return el }
+    html: (el, markup) => { setHTML(el, markup); bind(el); return el },
+
+    // The evaluation a directive gets, for code that is not attached to an
+    // element. A keyboard shortcut can then run exactly what its menu entry
+    // runs, instead of the same intent written twice in two dialects.
+    run: (source, scope) => statement(source)(state, scoped(scope ?? {})),
+    evaluate: (source, scope) => expression(source)(state, scoped(scope ?? {}))
   }
 
   const boot = () => {

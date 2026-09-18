@@ -481,7 +481,10 @@ state\set "files", Neutrino.json.array {}       -- [] rather than {}
 ```
 
 Underneath, `window.nui` exposes `signal`, `effect`, `state`, `get`, `set`,
-`bind(root)` and `html(el, markup)` for code that would rather write its own.
+`bind(root)`, `html(el, markup)` and `run(source)` / `evaluate(source)` for
+code that would rather write its own. The last two give code attached to no
+element - a keyboard shortcut, say - the evaluation a directive gets, so an
+action does not have to be written twice in two dialects.
 `bind` descends into shadow roots; `html` replaces an element's content and
 wires what arrived, which plain `innerHTML` cannot do - it drops a declarative
 shadow root without a word.

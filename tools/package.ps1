@@ -12,6 +12,7 @@
 #     app/                 the compiled application and the framework
 #       main.lua           entry point, required
 #       core/ browser/ serve/ system/ util/ ui/
+#     static/              assets served over neutrino://
 #     rocks/               vendored Lua modules (cjson, and luv if present)
 #     bin/                 neutrinocef.dll and the whole CEF runtime
 #
@@ -161,6 +162,14 @@ foreach ($sub in @("share\lua\5.1", "lib\lua\5.1")) {
         New-Item -ItemType Directory -Path $to -Force | Out-Null
         Copy-Item -Recurse -Force -Path (Join-Path $from "*") -Destination $to
     }
+}
+
+# --- Static assets ----------------------------------------------------------
+
+$StaticSrc = Join-Path $RootDir "static"
+if (Test-Path $StaticSrc) {
+    Write-Host "  Static assets" -ForegroundColor DarkGray
+    Copy-Item -Recurse -Force -Path $StaticSrc -Destination $OutDir
 }
 
 # --- The executable ---------------------------------------------------------

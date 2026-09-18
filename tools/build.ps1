@@ -74,6 +74,18 @@ foreach ($dir in @("examples", "tests")) {
     }
 }
 
+# --- Static assets ----------------------------------------------------------
+#
+# static/ is served at runtime rather than compiled, so it is copied as it is.
+# The application resolves it against its own root, which is dist/ here and the
+# package folder once packaged.
+
+$StaticSrc = Join-Path $RootDir "static"
+if (Test-Path $StaticSrc) {
+    Write-Host "  Static assets" -ForegroundColor Yellow
+    Copy-Item -Recurse -Force -Path $StaticSrc -Destination $DistDir
+}
+
 # --- Stage the CEF runtime --------------------------------------------------
 
 Write-Host "  CEF runtime: $($CefRoot.Name)" -ForegroundColor Gray

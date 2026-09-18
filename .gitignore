@@ -1,0 +1,34 @@
+# Dependencies. None of this is in the repository: CEF is a gigabyte, LuaJIT
+# has no official Windows binaries, and committing .exe and .dll files to a
+# public repository is a good way to make people reasonably suspicious of it.
+#
+#   .\tools\get-deps.ps1
+/deps/
+
+# Build output
+/native/build/
+/dist/
+
+# Packaged applications; around 400 MB each, almost all of it CEF.
+/build/
+
+# Compiled MoonScript left beside a source file by a manual moonc run.
+# Everything the build produces goes to dist/, so a .lua in the tree is a
+# leftover rather than something anyone should read.
+/*.lua
+/src/**/*.lua
+/examples/*.lua
+/tests/*.lua
+
+# CEF and Chromium logs
+debug.log
+chrome_debug.log
+cef.log
+
+# Editor and toolchain noise
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln
+CMakeSettings.json

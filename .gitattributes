@@ -1,0 +1,15 @@
+# Normalise line endings in the repository, check out native ones.
+# The sources here were written on Windows and carry CRLF; without this, a
+# clone on another platform turns every file into a diff.
+* text=auto
+
+# PowerShell is happiest with CRLF, and these are Windows-only anyway.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# Shipped as-is.
+*.png binary
+*.ico binary
+*.pak binary
+*.dat binary
+*.bin binary

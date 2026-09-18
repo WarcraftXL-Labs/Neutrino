@@ -59,6 +59,12 @@ log.info "%d apples", "not a number"
 t.check "a bad format falls back to the message",
   (contents!)\match("%%d apples") != nil, contents!
 
+-- tostring on a table gives an address, which in a log file is the same as
+-- writing nothing at all.
+log.dump "payload", { name: "mpq", size: 12 }, "info"
+t.check "a table is dumped readably rather than as an address",
+  (contents!)\match('name = "mpq"') != nil, contents!
+
 t.section "Catching what was already written"
 
 -- The point of the module. Every one of these lines exists in the framework

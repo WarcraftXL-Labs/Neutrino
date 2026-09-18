@@ -717,8 +717,20 @@ To add a Lua package:
 Native rocks need the MSVC environment on PATH; run the command from a
 Developer Command Prompt, or after `vcvars64.bat`.
 
-`get-deps.ps1` installs `lua-cjson`, `luv`, `moonscript`, `etlua` and
-`penlight`; the third pulls in `lpeg`, `lfs` and `argparse`. Add a rock to the `$Rocks` list there rather than
+`get-deps.ps1` installs what the framework uses, each for one reason:
+
+| rock | what it is there for |
+| :--- | :--- |
+| `lua-cjson` | JSON, in C, on every IPC and route boundary |
+| `luv` | libuv: worker threads, child processes, file watchers |
+| `moonscript` | the compiler; brings `lpeg`, `lfs` and `argparse` |
+| `etlua` | widget templates, escaping by default |
+| `penlight` | paths and directories that are not Windows-only |
+| `inspect` | tables in a log file, readable |
+| `lsqlite3complete` | SQLite with the amalgamation built in |
+
+`lsqlite3complete` rather than `lsqlite3`: the plain one wants SQLite already
+installed on the machine, which is one more thing a clone has to get right. Add a rock to the `$Rocks` list there rather than
 installing it by hand, or the next person to clone will not have it.
 
 ## License

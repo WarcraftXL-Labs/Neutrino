@@ -157,6 +157,21 @@ emit = (level, message, ...) ->
 
   M.write level, text
 
+--- Writes a value as readable text rather than as a table address.
+--
+-- `tostring` on a table gives `table: 0x...`, which in a log file is the same
+-- as writing nothing. This is the reason `inspect` is a dependency.
+--
+--     log.dump "request", req
+--
+---@param label string What the value is.
+---@param value any
+---@param level? string Defaults to "debug".
+M.dump = (label, value, level = "debug") ->
+  ok, inspect = pcall require, "inspect"
+  text = ok and inspect(value) or tostring value
+  M.write level, "#{label} = #{text}"
+
 M.debug = (message, ...) -> emit "debug", message, ...
 M.info = (message, ...) -> emit "info", message, ...
 M.warn = (message, ...) -> emit "warn", message, ...

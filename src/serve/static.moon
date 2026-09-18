@@ -22,6 +22,7 @@
 -- corrupt in a way that depends on the bytes, so it sometimes works.
 ---@module serve.static
 
+fs = require "util.fs"
 paths = require "util.paths"
 
 -- Extension to content type. Short on purpose: an application serving something
@@ -115,19 +116,41 @@ content_type = (name, types) ->
   types[extension\lower!] or DEFAULT_TYPE
 
 --- Reads a whole file as bytes.
----@param path string
+---@param file_path string
 ---@return string|nil
 ---@private
-read_file = (path) ->
+read_file = (file_path) ->
   -- Synchronous, which is right for an asset on a local disk and wrong for
   -- anything large. The asynchronous path needs a luv pump that does not exist
   -- yet; when it does, this is the one place to change.
-  handle = io.open path, "rb"
-  return nil unless handle
+  return nil unless fs.is_file file_path
+  fs.read file_path
 
-  data = handle\read "*a"
-  handle\close!
-  data
+--- Whether a file the path check let through really sits inside the folder.
+--
+-- That check proves the *string* stays inside. It cannot prove the filesystem
+-- agrees: a directory junction inside the folder looks like an ordinary name
+-- and leads anywhere on the disk. Only asking where the path actually points
+-- settles it.
+--
+-- Stands down when luv is missing, since that is what resolves a real path. A
+-- rock that failed to build should not stop a folder being served, and the
+-- string check still holds on its own.
+---@param root_real string|nil
+---@param file_path string
+---@return boolean
+---@private
+inside = (root_real, file_path) ->
+  return true unless root_real
+
+  resolved = fs.real file_path
+
+  -- Nothing to resolve means nothing is there. That is a 404, answered by the
+  -- read below; calling it forbidden here would turn every typo into a refusal
+  -- and say nothing useful.
+  return true unless resolved
+
+  fs.contains root_real, resolved
 
 --- Mounts a directory on a router.
 ---@param router Router The router to register on.
@@ -140,6 +163,10 @@ read_file = (path) ->
 ---@return Router router, for chaining.
 mount = (router, prefix, directory, opts = {}) ->
   root = paths.resolve directory
+
+  -- Resolved once, on the way in. A folder that does not exist yet resolves to
+  -- nil, and the containment check stands down rather than refusing everything.
+  root_real = fs.real root
 
   types = TYPES
   if opts.types
@@ -157,13 +184,15 @@ mount = (router, prefix, directory, opts = {}) ->
       return
 
     file = "#{root}/#{relative}"
-    data = read_file file
 
-    -- A directory opens on Windows but reads as nothing, so an index is tried
-    -- for both "no such file" and "that was a folder".
-    if (data == nil or data == "") and opts.index
-      data = read_file "#{file}/#{opts.index}"
-      file = "#{file}/#{opts.index}" if data
+    -- The index stands in for a directory, and faces the same checks.
+    file = "#{file}/#{opts.index}" if opts.index and fs.is_dir file
+
+    unless inside root_real, file
+      res\status(403)\text "Forbidden"
+      return
+
+    data = read_file file
 
     unless data
       res\status(404)\text "Not found"

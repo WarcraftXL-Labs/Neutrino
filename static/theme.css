@@ -1,0 +1,49 @@
+/* Shared tokens for the widgets.
+ *
+ * Widgets scope their own style in a shadow root, so this file cannot restyle
+ * them directly - and that is the point. What crosses a shadow boundary is
+ * custom properties, so these are the whole of the surface an application is
+ * meant to touch.
+ *
+ *   <link rel="stylesheet" href="neutrino://app/assets/theme.css">
+ */
+
+:root {
+  --n-bg: #1b1b1b;
+  --n-panel-bg: #222;
+  --n-input-bg: #1a1a1a;
+  --n-button-bg: #2a2a2a;
+  --n-button-bg-hover: #333;
+
+  --n-fg: #e8e8e8;
+  --n-fg-dim: #9a9a9a;
+
+  --n-border: #3a3a3a;
+  --n-accent: #3b6ea5;
+
+  --n-radius: 4px;
+  --n-gap: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --n-bg: #f6f6f6;
+    --n-panel-bg: #fff;
+    --n-input-bg: #fff;
+    --n-button-bg: #fff;
+    --n-button-bg-hover: #f0f0f0;
+
+    --n-fg: #1b1b1b;
+    --n-fg-dim: #666;
+
+    --n-border: #d0d0d0;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--n-bg);
+  color: var(--n-fg);
+  font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
+}

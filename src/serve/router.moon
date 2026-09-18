@@ -6,6 +6,8 @@
 -- wildcards.
 ---@module serve.router
 
+static_files = require "serve.static"
+
 --- Compiles a route path into a Lua pattern and the names it captures.
 -- `/module/:name/assets/*` becomes `^/module/([^/]+)/assets/(.*)$` with the
 -- names { "name", "splat" }.
@@ -52,6 +54,21 @@ class Router
   put: (path, handler) => @register "PUT", path, handler
   delete: (path, handler) => @register "DELETE", path, handler
   patch: (path, handler) => @register "PATCH", path, handler
+
+  --- Serves a directory of files under a url prefix.
+  --
+  -- The same call whichever router it is on, so an application can have one
+  -- folder for everything, a module can have its own, or both:
+  --
+  --     server\static "/assets", "static"
+  --     module.router\static "/assets", "modules/mpq/www"
+  --
+  ---@param prefix string Url prefix, such as "/assets".
+  ---@param directory string Directory on disk, relative to the app root.
+  ---@param opts? table index, cache and types; see serve.static.
+  ---@return Router self, for chaining.
+  static: (prefix, directory, opts) =>
+    static_files.mount @, prefix, directory, opts or {}
 
   --- Registers the same handler for every common method.
   ---@param path string Route path.

@@ -203,6 +203,17 @@ class Server
     @hosts[host] or= Router!
     @hosts[host]
 
+  --- Serves a directory of files from the default host.
+  -- Shorthand for `server.router\static`; a module mounts its own on its own
+  -- router instead.
+  ---@param prefix string Url prefix, such as "/assets".
+  ---@param directory string Directory on disk, relative to the app root.
+  ---@param opts? table index, cache and types; see serve.static.
+  ---@return Server self, for chaining.
+  static: (prefix, directory, opts) =>
+    @router\static prefix, directory, opts
+    @
+
   --- Forgets a host and every route registered under it.
   -- This is how a module stops serving: it owns its origin outright, so
   -- dropping the router drops exactly its routes and nobody else's.

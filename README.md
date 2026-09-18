@@ -353,6 +353,11 @@ neutrino://app/assets/C:/Windows/...   403
 neutrino://app/assets/missing.css      404
 ```
 
+There are two checks, not one. The first refuses the request outright; the
+second asks the filesystem where the path actually went, because a directory
+junction inside the folder is an ordinary name on the way in and anywhere at
+all on the way out.
+
 `opts` takes `index` for a directory, `cache` for a `Cache-Control` value and
 `types` to add or replace content types. Files are read whole and synchronously,
 which is right for an icon and wrong for something large.
@@ -620,7 +625,7 @@ src/core/         the engine: app loop, events, async, timers, modules, the
 src/browser/      windows, sessions, displays, key names
 src/serve/        the neutrino:// server, its router and static files
 src/system/       the OS: clipboard, shell, single instance
-src/util/         json, filesystem, path resolution
+src/util/         json, paths and files (over penlight), path resolution
 src/ui/           the page: reactive state, directives, widgets
 tests/            units, shell, module, static, ui-layer, widgets, browser,
                   session, single-instance
@@ -657,8 +662,8 @@ To add a Lua package:
 Native rocks need the MSVC environment on PATH; run the command from a
 Developer Command Prompt, or after `vcvars64.bat`.
 
-`get-deps.ps1` installs `lua-cjson`, `luv`, `moonscript` and `etlua`; the
-third pulls in `lpeg`, `lfs` and `argparse`. Add a rock to the `$Rocks` list there rather than
+`get-deps.ps1` installs `lua-cjson`, `luv`, `moonscript`, `etlua` and
+`penlight`; the third pulls in `lpeg`, `lfs` and `argparse`. Add a rock to the `$Rocks` list there rather than
 installing it by hand, or the next person to clone will not have it.
 
 ## License

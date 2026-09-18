@@ -256,6 +256,12 @@ letter, a UNC path, and a name ending in a dot or a space, since Windows strips
 those when it opens a file and `index.html.` would otherwise be a second name
 for the same file.
 
+None of it proves the *filesystem* agrees, though. A directory junction inside
+the served folder passes every string check and leads wherever it likes, so
+there is a second gate: resolve the file to a real path and confirm it is still
+under the resolved root. `luv` answers that one; when luv is missing the gate
+stands down rather than refusing everything, and the string check still holds.
+
 The check was written with all of that in mind and still shipped broken: a
 MoonScript call without parentheses swallowed the `or` that followed it, so the
 second `match` became an argument to the first instead of an alternative to it,

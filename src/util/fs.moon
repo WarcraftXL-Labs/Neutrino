@@ -187,12 +187,17 @@ M.walk = (p, pattern) -> dir.getallfiles p, pattern
 
 --- Reads a file without blocking, through luv.
 --
--- Needs a luv loop to be running for its callback to fire, and nothing pumps
--- one outside `async.work` yet. Until that exists, prefer `read`.
+-- The loop is woken here, because a libuv callback only fires while something
+-- services libuv and nothing else can see that this registered anything.
 ---@param p string
 ---@param callback fun(err: any, data: string|nil)
 M.read_async = (p, callback) ->
   uv = require_luv!
+
+  -- Required here rather than at the top: util sits below core, and this is the
+  -- one function that needs to reach up.
+  (require "core.uv").wake!
+
   uv.fs_open p, "r", 438, (err, fd) ->
     return callback(err) if err
     uv.fs_fstat fd, (err, stat) ->

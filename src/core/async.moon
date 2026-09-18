@@ -16,6 +16,7 @@
 ---@module core.async
 
 timer = require "core.timer"
+uv = require "core.uv"
 
 M = {}
 
@@ -98,29 +99,6 @@ M.sleep = (ms) ->
   M.await (resolve) ->
     timer.after ms, resolve
 
--- luv is loaded only when a worker is actually requested, and its loop is only
--- serviced while one is in flight. CEF owns the application's message loop, so
--- libuv has no reason to run the rest of the time.
-pending_workers = 0
-worker_pump = nil
-
-pump_workers = ->
-  luv = require "luv"
-  luv.run "nowait"
-
-start_worker_pump = ->
-  pending_workers += 1
-  return if worker_pump
-  -- 4 ms: brisk enough that a finished job is picked up promptly, and it only
-  -- runs while there is something to pick up.
-  worker_pump = timer.every 4, pump_workers
-
-stop_worker_pump = ->
-  pending_workers -= 1
-  return if pending_workers > 0 or not worker_pump
-  timer.stop worker_pump
-  worker_pump = nil
-
 --- Runs a function on a worker thread and awaits its result.
 --
 -- This is the one place where Lua being single-threaded actually bites, and the
@@ -145,9 +123,13 @@ M.work = (fn, ...) ->
   argc = select "#", ...
 
   M.await (resolve) ->
-    start_worker_pump!
+    -- Held rather than merely woken: a job sitting on a worker thread is not
+    -- something libuv reports as pending, so without this the pump would decide
+    -- the loop had nothing to do and stop before the result came back.
+    uv.retain!
+
     worker = luv.new_work fn, (...) ->
-      stop_worker_pump!
+      uv.release!
       resolve ...
     worker\queue unpack args, 1, argc
 

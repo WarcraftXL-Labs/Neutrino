@@ -48,6 +48,17 @@ else
     package.path = rocks_path .. package.path unless package.path\find rocks_path, 1, true
     package.cpath = rocks_cpath .. package.cpath unless package.cpath\find rocks_cpath, 1, true
 
+--- Where a named application may keep files it writes.
+--
+-- Under the user's local app data rather than beside the executable, because a
+-- packaged application is often installed somewhere it cannot write and finds
+-- that out the first time it tries.
+---@param name string Application name.
+---@return string
+M.data_dir = (name = "Neutrino") ->
+  base = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA") or M.root or "."
+  "#{(tostring base)\gsub "\\", "/"}/#{name}"
+
 --- Resolves a path against the application root.
 -- An absolute path is returned unchanged, so a caller that knows exactly where
 -- something is does not have to fight this.

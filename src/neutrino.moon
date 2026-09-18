@@ -34,6 +34,7 @@ pcall -> io.stdout\setvbuf "line"
   keys: require "browser.keys"
   screen: require "browser.screen"
   json: require "util.json"
+  log: require "util.log"
   fs: require "util.fs"
 
   -- Low-level escape hatches. Reach for these only when the high-level API

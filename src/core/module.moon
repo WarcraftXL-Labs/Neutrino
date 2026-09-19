@@ -30,9 +30,9 @@
 --     app\register_module Mpq
 ---@module core.module
 
-sessions = require "browser.session"
 servers = require "serve.server"
 timer = require "core.timer"
+log = require "util.log"
 BrowserWindow = (require "browser.window").BrowserWindow
 
 --- Derives a namespace from a class name, so a module that does not declare
@@ -178,10 +178,6 @@ class Module
     return @partition if type(@partition) == "string"
     ""
 
-  --- The module's session.
-  ---@return Session
-  session: => sessions.for_partition @partition_name!
-
   --- Explains why a window will not store through the module's session, or nil
   --- when it will.
   --
@@ -200,19 +196,6 @@ class Module
     "module '#{@name}' expects partition '#{wanted}' but the window it " ..
       "attached to uses '#{window.partition}'; the page stores through the " ..
       "window's"
-
-  --- Serves a directory of files under the module's own origin.
-  --
-  -- A module that ships its own icons or fonts keeps them with itself, so
-  -- unregistering it takes its routes with it. A module that only needs the
-  -- application's shared assets does not call this and uses those.
-  ---@param directory string Directory on disk, relative to the app root.
-  ---@param prefix? string Url prefix. Defaults to "/assets".
-  ---@param opts? table index, cache and types; see serve.static.
-  ---@return Module self, for chaining.
-  static: (directory, prefix = "/assets", opts) =>
-    @router\static prefix, directory, opts
-    @
 
   --- Runs a request through the routers and hands the reply back to Lua.
   -- A bare path is resolved against the module's own origin, so a module can
@@ -254,7 +237,7 @@ class Module
     return @ unless window and not window.closed
 
     if mismatch = @partition_mismatch window
-      io.stderr\write "[neutrino] #{mismatch}\n"
+      log.warn "%s", mismatch
 
     for attached in *@_attached
       return @ if attached == window

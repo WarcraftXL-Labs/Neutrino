@@ -102,13 +102,15 @@ M.add = (tag, table_, namespace) ->
 
 --- Reads every `<tag>.json` in a directory.
 --
--- Resolved against the application root, like everything else a build ships,
--- so the same call works from `dist/` and from a package.
----@param directory string Path under the application root.
+-- Resolved against the application's Lua tree rather than its root: bundles
+-- are shipped with the code that asks for them, and a package puts that code
+-- under `app/` while the root holds `static/` and `bin/`. Against the root
+-- this found nothing in a package and everything in development.
+---@param directory string Path under the application's Lua tree.
 ---@param namespace? string Key to nest every bundle under.
 ---@return string[] tags, string|nil err
 M.load = (directory, namespace) ->
-  folder = paths.resolve directory
+  folder = paths.in_app directory
   return {}, "no folder at #{folder}" unless fs.is_dir folder
 
   tags = {}

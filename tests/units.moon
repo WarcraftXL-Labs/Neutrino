@@ -106,6 +106,34 @@ t.check "a copy leaves both",
 
 -- ═══════════════════════════════════════════════════════════════════════════
 
+t.section "Where the application's files are"
+
+paths = Neutrino.paths
+
+-- Two layouts have to work: development, where `dist/` holds the Lua and
+-- `static/` side by side, and a package, where the Lua is under `app/`. A
+-- module asking for the files it ships wants the tree, not the root - and
+-- resolving the wrong one works all through development and fails only in the
+-- package. That has happened twice.
+t.check "the Lua tree is known", paths.app != nil and paths.app != "",
+  tostring paths.app
+t.check "and it is where this suite was loaded from",
+  (fs.is_file "#{paths.app}/neutrino.lua"), "#{paths.app}/neutrino.lua"
+
+t.check "a relative path resolves under it",
+  (paths.in_app "locales") == "#{paths.app}/locales", paths.in_app "locales"
+t.check "an absolute one is left alone",
+  (paths.in_app "C:/elsewhere/x.json") == "C:/elsewhere/x.json",
+  paths.in_app "C:/elsewhere/x.json"
+t.check "and backslashes are normalised",
+  (paths.in_app "a\\b") == "#{paths.app}/a/b", paths.in_app "a\\b"
+
+-- The root is the other answer, and the two differ exactly where it matters.
+t.check "the root is where static/ lives",
+  (fs.is_dir "#{paths.root}/static"), "#{paths.root}/static"
+
+-- ═══════════════════════════════════════════════════════════════════════════
+
 t.section "URL parsing"
 
 { :parse_url, :parse_query } = require "serve.server"

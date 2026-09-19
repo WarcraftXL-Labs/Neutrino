@@ -59,6 +59,39 @@ M.data_dir = (name = "Neutrino") ->
   base = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA") or M.root or "."
   "#{(tostring base)\gsub "\\", "/"}/#{name}"
 
+--- Where the application's own Lua was loaded from.
+--
+-- Not the root. In development the two are the same folder - `dist/` holds
+-- `main.lua` and `static/` side by side - and a package puts the Lua under
+-- `app/`, beside `static/` and `bin/`. Anything a module ships *with its code*
+-- is therefore under this and not under `root`: markup, scripts, locale
+-- bundles.
+--
+-- Derived rather than assumed, from where this file itself was loaded, so it
+-- is right in both layouts without either of them being named. Resolving the
+-- wrong one is the kind of mistake that works all through development and
+-- fails only in the package, which is the worst place to find it - it has
+-- happened twice.
+---@type string
+M.app = do
+  source = debug.getinfo(1, "S").source or ""
+  folder = source\match "^@(.*)[/\\]util[/\\]paths%.lua$"
+  folder and (folder\gsub "\\", "/") or M.root
+
+--- Resolves a path against the application's Lua tree.
+--
+-- What `resolve` is for the root, this is for the code. A module asking for
+-- the files it ships wants this one.
+---@param path string
+---@return string
+M.in_app = (path) ->
+  path = (tostring path)\gsub "\\", "/"
+
+  return path if path\match "^%a:[/\\]" or path\match "^/"
+  return path unless M.app
+
+  "#{M.app}/#{path}"
+
 --- Resolves a path against the application root.
 -- An absolute path is returned unchanged, so a caller that knows exactly where
 -- something is does not have to fight this.

@@ -58,19 +58,51 @@ seen = {}
 -- Bundles
 -- ═══════════════════════════════════════════════════════════════════════════
 
---- Adds a bundle under a tag, replacing one already there.
+--- Merges `incoming` into `target`, in place, deeply.
+--
+-- A string always wins over whatever was there. Two tables are walked, so a
+-- tool adding `grid.empty` does not take `grid.rows` away from the one that
+-- added it first.
+---@param target table
+---@param incoming table
+---@private
+merge = (target, incoming) ->
+  for key, value in pairs incoming
+    if type(value) == "table" and type(target[key]) == "table"
+      merge target[key], value
+    else
+      target[key] = value
+  target
+
+--- Merges a table of strings into a tag's bundle.
+--
+-- Merged rather than replaced, because an application is not one thing that
+-- owns all its text: a shell contributes its own, and so does every tool it
+-- hosts. Replacing would mean the last one loaded won and the rest vanished,
+-- quietly, in whatever order the requires happened to run.
+--
+-- A namespace keeps them apart. `add "en", strings, "dbc"` puts them under
+-- `t.dbc`, so two tools can both have an `actions.save` and mean different
+-- words.
 ---@param tag string Language tag, such as "en" or "fr-FR".
 ---@param table_ table Nested table of strings.
-M.add = (tag, table_) ->
-  bundles[tag] = table_ or {}
+---@param namespace? string Key to nest them under.
+M.add = (tag, table_, namespace) ->
+  bundles[tag] or= {}
+
+  incoming = table_ or {}
+  incoming = { [namespace]: incoming } if namespace and namespace != ""
+
+  merge bundles[tag], incoming
 
 --- Reads every `<tag>.json` in a directory.
 --
 -- Resolved against the application root, like everything else a build ships,
 -- so the same call works from `dist/` and from a package.
 ---@param directory string Path under the application root.
+---@param namespace? string Key to nest every bundle under.
 ---@return string[] tags, string|nil err
-M.load = (directory) ->
+M.load = (directory, namespace) ->
   folder = paths.resolve directory
   return {}, "no folder at #{folder}" unless fs.is_dir folder
 
@@ -85,7 +117,7 @@ M.load = (directory) ->
     unless decoded
       return tags, "#{name}.json: #{tostring err}"
 
-    M.add name, decoded
+    M.add name, decoded, namespace
     table.insert tags, name
 
   table.sort tags
@@ -244,6 +276,12 @@ M.unused = (tag) ->
   walk bundle, ""
   table.sort leftovers
   leftovers
+
+--- Forgets every bundle. For suites, and for reloading from disk.
+M.reset = ->
+  bundles = {}
+  current = nil
+  fallback = nil
 
 --- Forgets what has been looked up. For suites, and between runs.
 M.reset_report = ->

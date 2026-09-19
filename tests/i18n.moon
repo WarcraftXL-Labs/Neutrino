@@ -179,6 +179,47 @@ t.check "the report can be forgotten", (i18n.reset_report! or true) and
 
 -- ═══════════════════════════════════════════════════════════════════════════
 
+t.section "Several contributors, one bundle"
+
+-- A shell and the tools it hosts each bring their own strings. Whoever loads
+-- last must not take the others' away.
+i18n.reset!
+i18n.add "en", { shell: { file: "File" }, common: { ok: "OK" } }
+i18n.add "en", { common: { cancel: "Cancel" } }
+i18n.use "en"
+
+t.check "what the first contributor added is still there",
+  (i18n.t "shell.file") == "File", i18n.t "shell.file"
+t.check "and so is the second's",
+  (i18n.t "common.cancel") == "Cancel", i18n.t "common.cancel"
+t.check "merged key by key rather than branch by branch",
+  (i18n.t "common.ok") == "OK", i18n.t "common.ok"
+
+-- Two tools can both call something "save" and mean different words.
+i18n.add "en", { actions: { save: "Save table" } }, "dbc"
+i18n.add "en", { actions: { save: "Export model" } }, "m2"
+
+t.check "a namespace keeps one tool's strings off another's",
+  (i18n.t "dbc.actions.save") == "Save table", i18n.t "dbc.actions.save"
+t.check "and the other keeps its own",
+  (i18n.t "m2.actions.save") == "Export model", i18n.t "m2.actions.save"
+t.check "while what was there before is untouched",
+  (i18n.t "shell.file") == "File", i18n.t "shell.file"
+
+-- The same word in the same place is a replacement, not a second entry.
+i18n.add "en", { shell: { file: "Fichier" } }
+t.check "a later contributor overwrites an exact key",
+  (i18n.t "shell.file") == "Fichier", i18n.t "shell.file"
+
+i18n.reset!
+t.check "and everything can be forgotten",
+  #i18n.available! == 0, table.concat i18n.available!, ","
+
+-- Put the folder's bundles back for the section below.
+i18n.load folder
+
+-- ═══════════════════════════════════════════════════════════════════════════
+
 t.section "A folder that is not there"
 
 gone, load_err = i18n.load "#{folder}/nowhere"

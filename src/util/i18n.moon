@@ -277,6 +277,47 @@ M.unused = (tag) ->
   table.sort leftovers
   leftovers
 
+--- Keys whose text is identical, grouped by that text.
+--
+-- Where a bundle is one folder or several is the application's choice: shared
+-- strings at the root and a tool's own under its namespace, or everything in
+-- one file, or the same folder split however it suits. Nothing here forces
+-- that, and nothing should.
+--
+-- What is worth knowing is when the choice went wrong - when four tools each
+-- grew their own "Save" instead of binding the one at the root. That is a
+-- thing to see rather than a rule to obey: sometimes two keys sharing a word
+-- in English are two different words in German, and merging them would be the
+-- bug. So this reports and never refuses.
+--
+-- Only groups of two or more, sorted, with the keys in each sorted too.
+---@param tag? string Which bundle to examine. Defaults to the one in use.
+---@return table[] groups { text = "Save", keys = { "a.save", "b.save" } }
+M.duplicates = (tag) ->
+  bundle = tag and bundles[tag] or M.bundle!
+  by_text = {}
+
+  walk = (node, prefix) ->
+    for name, value in pairs node
+      key = prefix == "" and name or "#{prefix}.#{name}"
+
+      if type(value) == "table"
+        walk value, key
+      elseif type(value) == "string" and value != ""
+        by_text[value] or= {}
+        table.insert by_text[value], key
+
+  walk bundle, ""
+
+  groups = {}
+  for text, keys in pairs by_text
+    continue if #keys < 2
+    table.sort keys
+    table.insert groups, { :text, :keys }
+
+  table.sort groups, (a, b) -> a.text < b.text
+  groups
+
 --- Forgets every bundle. For suites, and for reloading from disk.
 M.reset = ->
   bundles = {}

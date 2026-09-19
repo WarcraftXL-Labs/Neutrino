@@ -215,6 +215,41 @@ i18n.reset!
 t.check "and everything can be forgotten",
   #i18n.available! == 0, table.concat i18n.available!, ","
 
+-- ═══════════════════════════════════════════════════════════════════════════
+
+t.section "The same word, written twice"
+
+-- Where a bundle lives is the application's choice. What is worth seeing is
+-- when that choice went wrong and two tools each grew their own "Save"
+-- instead of binding the one at the root.
+i18n.reset!
+i18n.add "en", {
+  actions: { save: "Save", close: "Close" }
+  dbc: { toolbar: { save: "Save" } }
+  m2: { toolbar: { save: "Save", export: "Export" } }
+  empty_one: ""
+  empty_two: ""
+}
+i18n.use "en"
+
+groups = i18n.duplicates!
+t.check "one group, for the word written three times",
+  #groups == 1, "#{#groups} groups"
+t.check "and it names that word",
+  groups[1] and groups[1].text == "Save", groups[1] and groups[1].text or "none"
+t.check "with every key that says it",
+  groups[1] and #groups[1].keys == 3, groups[1] and #groups[1].keys or 0
+t.check "sorted, so two runs read the same",
+  groups[1] and (table.concat groups[1].keys, ",") ==
+    "actions.save,dbc.toolbar.save,m2.toolbar.save",
+  groups[1] and table.concat groups[1].keys, ","
+
+-- Two empty strings are two blanks, not the same word twice.
+t.check "a word written once is not reported",
+  #groups == 1, "#{#groups} groups"
+
+i18n.reset!
+
 -- Put the folder's bundles back for the section below.
 i18n.load folder
 

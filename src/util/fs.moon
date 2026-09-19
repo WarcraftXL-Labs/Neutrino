@@ -173,6 +173,39 @@ M.write = (p, data, text) -> file.write p, data, not text
 ---@return boolean|nil ok, string|nil err
 M.make_dir = (p) -> dir.makepath p
 
+--- Moves a file, replacing whatever is at the destination.
+--
+-- What "write it safely" is made of: write a temporary file, then move it over
+-- the real one, so a failure halfway through leaves the original where it was
+-- rather than truncated. penlight's move refuses an existing destination on
+-- Windows, so the destination goes first - which is the semantics every caller
+-- wants, and the only ones that can replace a file at all.
+--
+-- `from` is a keyword in MoonScript - the second half of `import x from y` -
+-- so neither of these can take a parameter by that name.
+---@param source string
+---@param target string
+---@return boolean|nil ok, string|nil err
+M.move = (source, target) ->
+  if path.exists target
+    removed, err = M.remove target
+    return nil, err unless removed
+
+  file.move source, target
+
+--- Deletes a file. A path that is already gone is not a failure.
+---@param p string
+---@return boolean|nil ok, string|nil err
+M.remove = (p) ->
+  return true unless path.exists p
+  file.delete p
+
+--- Copies a file, replacing whatever is at the destination.
+---@param source string
+---@param target string
+---@return boolean|nil ok, string|nil err
+M.copy = (source, target) -> file.copy source, target
+
 --- The files directly inside a directory.
 ---@param p string
 ---@param pattern? string Shell pattern, such as "*.mpq".

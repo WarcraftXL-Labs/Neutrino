@@ -68,6 +68,44 @@ t.check "a cycle is refused rather than followed",
 
 -- ═══════════════════════════════════════════════════════════════════════════
 
+t.section "Files"
+
+fs = Neutrino.fs
+
+base = ((os.getenv("TEMP") or os.getenv("TMP") or ".")\gsub "\\", "/")
+scratch = "#{base}/neutrino-units-#{os.time!}-#{os.clock! * 1000000 % 100000}"
+fs.make_dir scratch
+
+-- Writing a file safely is writing a temporary one and moving it over the
+-- original, so that a failure halfway through leaves the original alone. That
+-- needs a move that replaces, which is not what the platform gives on Windows.
+fs.write "#{scratch}/first", "one"
+fs.write "#{scratch}/second", "two"
+
+moved, move_err = fs.move "#{scratch}/first", "#{scratch}/second"
+t.check "a move over an existing file reports success", moved != nil,
+  tostring move_err
+
+t.check "and what was moved is gone", not fs.is_file "#{scratch}/first"
+t.check "and the destination holds what was moved",
+  (fs.read "#{scratch}/second") == "one", tostring fs.read "#{scratch}/second"
+
+t.check "a file can be removed", (fs.remove "#{scratch}/second") and
+  not fs.is_file "#{scratch}/second"
+
+-- Removing what is not there is what a caller cleaning up after itself does,
+-- and it is not a failure.
+t.check "removing what is not there says so quietly",
+  (fs.remove "#{scratch}/never-existed") == true
+
+fs.write "#{scratch}/source", "bytes"
+fs.copy "#{scratch}/source", "#{scratch}/copied"
+t.check "a copy leaves both",
+  (fs.read "#{scratch}/source") == "bytes" and
+    (fs.read "#{scratch}/copied") == "bytes"
+
+-- ═══════════════════════════════════════════════════════════════════════════
+
 t.section "URL parsing"
 
 { :parse_url, :parse_query } = require "serve.server"

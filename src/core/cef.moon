@@ -82,6 +82,7 @@ ffi.cdef [[
     const char* log_file;
     const char* user_agent;
     const char* locale;
+    const char* angle_backend;
     int log_severity;
     int remote_debugging_port;
     int persist_session_cookies;
@@ -347,6 +348,7 @@ M.build_app_options = (opts = {}) ->
   c_opts[0].log_file = anchor opts.log_file
   c_opts[0].user_agent = anchor opts.user_agent
   c_opts[0].locale = anchor opts.locale
+  c_opts[0].angle_backend = anchor opts.angle_backend
 
   c_opts[0].log_severity = opts.log_severity or 0
   c_opts[0].remote_debugging_port = opts.remote_debugging_port or 0

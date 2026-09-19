@@ -163,6 +163,9 @@ NEUTRINO_API int neutrino_init(const neutrino_app_options* opts) {
 
   g_app = new NeutrinoApp();
   g_app->set_disable_gpu(opts->disable_gpu != 0);
+  if (opts->angle_backend && opts->angle_backend[0]) {
+    g_app->set_angle_backend(opts->angle_backend);
+  }
 
   CefSettings settings;
   settings.no_sandbox = true;

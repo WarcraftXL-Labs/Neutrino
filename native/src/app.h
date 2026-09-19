@@ -1,6 +1,8 @@
 #ifndef NEUTRINO_APP_H
 #define NEUTRINO_APP_H
 
+#include <string>
+
 #include "include/cef_app.h"
 #include "include/cef_browser_process_handler.h"
 
@@ -28,9 +30,13 @@ class NeutrinoApp : public CefApp, public CefBrowserProcessHandler {
 
   // Set from neutrino_init(); applied in OnBeforeCommandLineProcessing.
   void set_disable_gpu(bool disable) { disable_gpu_ = disable; }
+  void set_angle_backend(const std::string& backend) {
+    angle_backend_ = backend;
+  }
 
  private:
   bool disable_gpu_ = false;
+  std::string angle_backend_;
 
   IMPLEMENT_REFCOUNTING(NeutrinoApp);
   DISALLOW_COPY_AND_ASSIGN(NeutrinoApp);

@@ -32,6 +32,18 @@ void NeutrinoApp::OnBeforeCommandLineProcessing(
     command_line->AppendSwitch("disable-gpu");
     command_line->AppendSwitch("disable-gpu-compositing");
   }
+
+  // Which backend ANGLE translates GL to. Chromium picks D3D11 on Windows,
+  // and where that fails it fails hard: the GPU process hits a breakpoint on
+  // startup, is retried three times, and the page ends up with no WebGL
+  // context at all - not a slow one, none. Naming "gl" there gets a real
+  // context on the same hardware.
+  //
+  // Left empty by default, because the default is right on most machines and
+  // this is not the framework's call to make for an application.
+  if (!angle_backend_.empty()) {
+    command_line->AppendSwitchWithValue("use-angle", angle_backend_);
+  }
 }
 
 void NeutrinoApp::OnContextInitialized() {

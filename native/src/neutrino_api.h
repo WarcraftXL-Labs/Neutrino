@@ -159,6 +159,9 @@ struct neutrino_app_options {
   const char* log_file;
   const char* user_agent;
   const char* locale;
+  // ANGLE backend: "", "d3d11", "gl", "vulkan", "swiftshader".
+  // Empty leaves Chromium to choose.
+  const char* angle_backend;
   int log_severity;              // cef_log_severity_t
   int remote_debugging_port;
   int persist_session_cookies;

@@ -34,6 +34,10 @@ class App extends EventEmitter
   ---@field opts.remote_debugging_port integer Enables DevTools over HTTP.
   ---@field opts.persist_session_cookies boolean Keeps session cookies on disk.
   ---@field opts.disable_gpu boolean Forces software rendering.
+  ---@field opts.angle_backend string Which backend ANGLE translates GL to:
+  --- "d3d11", "gl", "vulkan" or "swiftshader". Empty leaves Chromium to
+  --- choose, which is right on most machines; name one where the default
+  --- leaves the page with no WebGL context.
   ---@field opts.background table RGB triple for the default background.
   ---@field opts.quit_on_last_window boolean Stops the loop when the last window
   --- closes. Defaults to true.

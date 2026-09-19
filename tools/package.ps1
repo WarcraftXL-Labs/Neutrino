@@ -157,9 +157,16 @@ foreach ($tree in $AppSrc) {
         }
     }
 
-    # Plain Lua alongside it - a vendored library, or a generated file - keeps
-    # its position in the tree, which is what its require paths assume.
-    Get-ChildItem -Path $treePath -Filter "*.lua" -Recurse | ForEach-Object {
+    # Everything the tree holds that moonc walks past, keeping its position -
+    # which is what a require path, and `paths.resolve`, both assume.
+    #
+    # Plain Lua is a vendored library or a generated file. The rest is what a
+    # module ships beside its code: etlua markup, and the JavaScript a page is
+    # driven with. Left out, those are missing at runtime and only in the
+    # packaged build, which is the worst place to find out.
+    $carried = @("*.lua", "*.etlua", "*.js", "*.css", "*.html", "*.json")
+
+    Get-ChildItem -Path $treePath -Include $carried -Recurse | ForEach-Object {
         $relative = $_.FullName.Substring($treePath.Length).TrimStart('\', '/')
         $target = Join-Path $AppDir $relative
         New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null

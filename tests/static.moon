@@ -59,7 +59,7 @@ t.section "Content types"
 
 t.check "css is a stylesheet",
   (static.content_type "a/theme.css", static.TYPES)\match("^text/css") != nil
-t.check "a module script is javascript",
+t.check "an extension script is javascript",
   (static.content_type "a/app.mjs", static.TYPES)\match("^text/javascript") != nil
 t.check "the extension is matched case insensitively",
   (static.content_type "A/LOGO.PNG", static.TYPES) == "image/png"
@@ -75,13 +75,13 @@ t.check "and so is a file with no extension",
 server = Neutrino.Server!
 server\static "/assets", "static"
 
--- The other half of the answer: a module can have its own, on its own origin.
-class Themed extends Neutrino.Module
+-- The other half of the answer: an extension can have its own, on its own origin.
+class Themed extends Neutrino.Extension
   name: "themed"
   routes: (router) => router\static "/own", "static"
 
 app = Neutrino.App t.app_options!
-app\register_module Themed
+app\register_extension Themed
 
 -- Every fetch below resolves inline, so the task runs to its end before the
 -- next statement. The guard is there in case that ever stops being true.
@@ -159,16 +159,16 @@ t.task "static routes", ->
   t.section "Both shapes at once"
 
   own = server\fetch "neutrino://themed/own/theme.css"
-  t.check "a module serves its own assets on its own origin",
+  t.check "an extension serves its own assets on its own origin",
     own.status == 200 and own.mime\match("^text/css") != nil,
     "#{own.status} #{own.mime}"
 
   t.check "the application's folder is still there",
     (server\fetch "neutrino://app/assets/theme.css").status == 200
 
-  -- Unregistering takes the module's routes with it, assets included.
-  app\unregister_module "themed"
-  t.check "a module's assets leave with the module",
+  -- Unregistering takes the extension's routes with it, assets included.
+  app\unregister_extension "themed"
+  t.check "an extension's assets leave with the extension",
     (server\fetch "neutrino://themed/own/theme.css").status == 404
 
   t.done!

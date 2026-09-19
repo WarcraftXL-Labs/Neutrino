@@ -67,7 +67,7 @@ Pages are served from Lua over `neutrino://`, handled in C++ and routed in Lua.
 Nothing listens on a TCP port, so there is no firewall prompt and no local
 socket for another process to connect to.
 
-Each host is a separate origin with its own routes, so modules can own
+Each host is a separate origin with its own routes, so extensions can own
 `neutrino://mpq/` without colliding with `neutrino://app/`.
 
 ## Getting started
@@ -90,7 +90,7 @@ whatever is already there, so re-running it is cheap.
 
 Use `tools\run.ps1` rather than calling `luajit.exe` directly: it sets
 `LUA_PATH` and `LUA_CPATH` explicitly, so a machine-wide LuaRocks installation
-cannot shadow the vendored modules.
+cannot shadow the vendored extensions.
 
 ## A minimal application
 
@@ -244,11 +244,11 @@ back to memory.
 
 ## Modules
 
-Nothing above this point needed a module, and that is deliberate: a window and a
-few routes are a complete application. A module is what you reach for when one
+Nothing above this point needed an extension, and that is deliberate: a window and a
+few routes are a complete application. An extension is what you reach for when one
 application holds several tools that should not know about each other.
 
-A module claims a name, and the name is the boundary:
+An extension claims a name, and the name is the boundary:
 
 | what it claims | from the name `mpq` |
 | :--- | :--- |
@@ -257,7 +257,7 @@ A module claims a name, and the name is the boundary:
 | its session | `persist:mpq`, if it asks for one |
 
 ```moon
-class Mpq extends Neutrino.Module
+class Mpq extends Neutrino.Extension
   name: "mpq"
   partition: true                  -- persist:mpq
 
@@ -269,35 +269,35 @@ class Mpq extends Neutrino.Module
     @handle "open", (payload) -> @open_archive payload.path
     @window = @open title: "Archives"
 
-app\register_module Mpq
+app\register_extension Mpq
 ```
 
-`@open` creates a window on the module's own origin, in its own partition, with
+`@open` creates a window on its own origin, in its own partition, with
 its handlers installed. `@handle "open"` answers `neutrino.invoke("mpq:open")`
 from the page, and `@broadcast "changed", detail` pushes to
 `neutrino.on("mpq:changed")`. `@attach window` installs the same handlers on a
-window the module did not open, which is how one shell window hosts several
-modules at once.
+window the extension did not open, which is how one shell window hosts several
+extensions at once.
 
-Two shapes are supported, and they mix. A module owns its window, or several
-modules share one:
+Two shapes are supported, and they mix. An extension owns its window, or several
+extensions share one:
 
 ```moon
 app\on "ready", ->
   shell = Neutrino.BrowserWindow { url: "neutrino://app/", width: 1280 }
-  mod\attach shell for mod in *app.modules
+  mod\attach shell for mod in *app.extensions
 ```
 
-A window has exactly one partition, so a module attached to a window it does not
+A window has exactly one partition, so an extension attached to a window it does not
 own stores through *that* window's session whatever it declared. `attach` warns
-when the two differ; per-module isolation is only real when the module opens its
+when the two differ; per-extension isolation is only real when the extension opens its
 own window.
 
-The boundary is real rather than a convention, so a module can be taken back
+The boundary is real rather than a convention, so an extension can be taken back
 down while the application runs:
 
 ```moon
-app\unregister_module "mpq"
+app\unregister_extension "mpq"
 ```
 
 That drops its routes, removes its handlers from every window it reached,
@@ -316,8 +316,8 @@ print reply.status, reply.mime, #reply.body
 ```
 
 A route is then testable without a window, a page's content can be computed
-before the window that will show it exists, and one module can consume another's
-output without knowing it is a module:
+before the window that will show it exists, and one extension can consume another's
+output without knowing it is an extension:
 
 ```moon
 routes: (router) =>
@@ -382,12 +382,12 @@ because nothing else can see that it registered anything.
 ## Serving files
 
 `static` mounts a directory on a router. The same call whichever router it is
-on, so an application can keep one folder for everything, a module can keep its
+on, so an application can keep one folder for everything, an extension can keep its
 own, or both:
 
 ```moon
-server\static "/assets", "static"          -- neutrino://app/assets/...
-module\static "modules/mpq/www"            -- neutrino://mpq/assets/...
+server\static "/assets", "static"                  -- neutrino://app/assets/...
+mpq.router\static "/assets", "extensions/mpq/www" -- neutrino://mpq/assets/...
 ```
 
 Paths are relative to the application root, which is `dist/` during development
@@ -571,9 +571,9 @@ The native layer and the Lua API around it:
 - context menus, keyboard accelerators, JS dialogs, file dialogs and downloads
 - request interception: block, redirect or rewrite the headers of any request
 - sessions: cookies and isolated partitions, on disk or in memory
-- modules: a named boundary over routes, IPC and windows, removable at runtime,
+- extensions: a named boundary over routes, IPC and windows, removable at runtime,
   and `server\fetch` to route a request without a browser
-- static routes, per application or per module, that refuse to leave their
+- static routes, per application or per extension, that refuse to leave their
   directory
 - libuv serviced from CEF's loop, so spawning a process, watching a folder
   and sockets all work
@@ -619,7 +619,7 @@ MPQBrowser/
   MPQBrowser.exe     the host; runs app/main.lua
   lua51.dll
   app/               the compiled application and the framework
-  rocks/             vendored Lua modules
+  rocks/             vendored Lua extensions
   bin/               neutrinocef.dll and the CEF runtime
 ```
 
@@ -679,13 +679,13 @@ caller stating the path is its own.
 ```
 native/src/       C++ layer; neutrino_api.h is the contract with Lua
 src/core/         the engine: app loop, events, async, timers, libuv,
-                  modules, the FFI binding and the bridge to it
+                  extensions, the FFI binding and the bridge to it
 src/browser/      windows, sessions, displays, key names
 src/serve/        the neutrino:// server, its router and static files
 src/system/       the OS: clipboard, shell, single instance
 src/util/         json, paths and files (over penlight), logging
 src/ui/           the page: reactive state, directives, widgets
-tests/            units, shell, log, loop, module, static, ui-layer,
+tests/            units, shell, log, loop, extension, static, ui-layer,
                   widgets, browser, session, single-instance
 docs/             architecture notes and CEF coverage
 tools/            get-deps, build, run, test, package

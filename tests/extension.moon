@@ -1,35 +1,35 @@
--- Modules: the namespace they claim, the internal dispatch, and what is left
+-- Extensions: the namespace they claim, the internal dispatch, and what is left
 -- when one is taken back down.
 --
 -- The first half needs no browser at all, which is the point: a route is now
 -- testable without a window. The second half opens one, because IPC and window
 -- ownership cannot be tested any other way.
 --
---   Run from dist\:  ..\deps\luajit\bin\luajit.exe tests\module.lua
+--   Run from dist\:  ..\deps\luajit\bin\luajit.exe tests\extension.lua
 
 Neutrino = require "neutrino"
 t = require "harness"
 
 async = Neutrino.async
 json = Neutrino.json
-Module = Neutrino.Module
+Extension = Neutrino.Extension
 
-print "Neutrino: modules"
+print "Neutrino: extensions"
 
 t.load_native!
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- Two modules that know nothing about each other
+-- Two extensions that know nothing about each other
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Recorded by the modules and read by the checks.
+-- Recorded by the extensions and read by the checks.
 seen = {
   archive_started: false
   archive_stopped: false
   archive_ticks: 0
 }
 
-class Archive extends Module
+class Archive extends Extension
   name: "archive"
   partition: true
 
@@ -52,19 +52,19 @@ class Archive extends Module
   on_quit: => seen.archive_stopped = true
 
 -- Declares no name, so it gets one from its class name.
-class ViewerModule extends Module
+class ViewerExtension extends Extension
   routes: (router) =>
     router\get "/", (req, res) -> res\text "viewer"
 
-    -- Composition: one module serving another's output without knowing it is
-    -- a module, which is the whole of what HMVC's sub-request buys.
+    -- Composition: one extension serving another's output without knowing it is
+    -- an extension, which is the whole of what HMVC's sub-request buys.
     router\get "/embed", (req, res) ->
       inner = @fetch "neutrino://archive/entry/42"
       -- Parenthesised: without them the call swallows the rest of the table as
       -- further arguments, and decode gets two.
       res\json { embedded: (json.decode inner.body), status: inner.status }
 
-    -- A bare path resolves against the module's own origin.
+    -- A bare path resolves against the extension's own origin.
     router\get "/self", (req, res) -> res\text (@fetch "/").body
 
 server = Neutrino.Server!
@@ -75,17 +75,17 @@ server.router\get "/", (req, res) ->
 app = Neutrino.App t.app_options { quit_on_last_window: false }
 t.expect_completion!
 
-archive = app\register_module Archive
-viewer = app\register_module ViewerModule
+archive = app\register_extension Archive
+viewer = app\register_extension ViewerExtension
 
 -- ═══════════════════════════════════════════════════════════════════════════
 
 t.section "Namespace"
 
-t.check "a module keeps the name it declares", archive.name == "archive"
-t.check "a module without one takes it from its class",
+t.check "an extension keeps the name it declares", archive.name == "archive"
+t.check "an extension without one takes it from its class",
   viewer.name == "viewer", viewer.name
-t.check "a module owns an origin", archive.origin == "neutrino://archive/",
+t.check "an extension owns an origin", archive.origin == "neutrino://archive/",
   archive.origin
 t.check "it builds urls under that origin",
   (archive\url "entry/1") == "neutrino://archive/entry/1", archive\url "entry/1"
@@ -94,25 +94,25 @@ t.check "a leading slash makes no difference",
 t.check "it prefixes its ipc channels",
   (archive\channel "open") == "archive:open", archive\channel "open"
 
-t.check "partition: true means persist under the module name",
+t.check "partition: true means persist under the extension name",
   (archive\partition_name!) == "persist:archive", archive\partition_name!
-t.check "a module that asks for nothing uses the default session",
+t.check "an extension that asks for nothing uses the default session",
   (viewer\partition_name!) == "", viewer\partition_name!
 
--- A window has one partition, so a module attached to somebody else's window
+-- A window has one partition, so an extension attached to somebody else's window
 -- does not get its own session however clearly it asked. Stub windows here:
 -- what is being tested is the rule, not a browser.
-t.check "a module says so when a window's session is not the one it wants",
+t.check "an extension says so when a window's session is not the one it wants",
   (archive\partition_mismatch { partition: "", closed: false }) != nil
 t.check "and says nothing when the window matches",
   (archive\partition_mismatch { partition: "persist:archive" }) == nil
-t.check "a module that wants no partition never complains",
+t.check "an extension that wants no partition never complains",
   (viewer\partition_mismatch { partition: "persist:elsewhere" }) == nil
 
-t.check "registering starts the module", seen.archive_started
-t.check "and the app can find it back", (app\module "archive") == archive
-t.check "a second module of the same name is refused",
-  not pcall -> app\register_module Archive
+t.check "registering starts the extension", seen.archive_started
+t.check "and the app can find it back", (app\extension "archive") == archive
+t.check "a second extension of the same name is refused",
+  not pcall -> app\register_extension Archive
 
 t.section "Serving without a browser"
 
@@ -120,7 +120,7 @@ t.section "Serving without a browser"
 -- now, so nothing about it needs a window.
 t.task "offline fetch", ->
   reply = server\fetch "neutrino://archive/entry/42"
-  t.check "an internal fetch reaches the module's router",
+  t.check "an internal fetch reaches the extension's router",
     reply.status == 200, tostring reply.status
   t.check "it carries the mime type the route set",
     reply.mime\match("^application/json") != nil, reply.mime
@@ -139,11 +139,11 @@ t.task "offline fetch", ->
 
   composed = server\fetch "neutrino://viewer/embed"
   embedded = json.decode composed.body
-  t.check "a module composes another module's reply",
+  t.check "an extension composes another extension's reply",
     embedded and embedded.embedded and embedded.embedded.id == "42",
     composed.body
 
-  t.check "a bare path resolves against the module's own origin",
+  t.check "a bare path resolves against the extension's own origin",
     (server\fetch "neutrino://viewer/self").body == "viewer",
     (server\fetch "neutrino://viewer/self").body
 
@@ -156,7 +156,7 @@ t.task "offline fetch", ->
 app\on "ready", ->
   t.deadline app
 
-  t.task "module suite", ->
+  t.task "extension suite", ->
     t.section "A route that waits"
 
     -- Left until the loop is running, because the handler sleeps on a timer and
@@ -169,11 +169,11 @@ app\on "ready", ->
     t.section "Windows and IPC"
 
     window = archive\open { width: 480, height: 320, show: false }
-    t.check "a module window loads the module's origin",
+    t.check "an extension window loads the extension's origin",
       window\get_url!\match("^neutrino://archive/") != nil, window\get_url!
-    t.check "and uses the module's partition",
+    t.check "and uses the extension's partition",
       window.partition == "persist:archive", window.partition
-    t.check "the module owns it", #archive.windows == 1, tostring #archive.windows
+    t.check "the extension owns it", #archive.windows == 1, tostring #archive.windows
 
     archive\handle "echo", (payload) -> { heard: payload.word }
 
@@ -191,14 +191,14 @@ app\on "ready", ->
         (window\eval "window.__echo") == "hi",
       window\eval "window.__echo"
 
-    -- Two modules in one window: the point of the prefix.
+    -- Two extensions in one window: the point of the prefix.
     viewer\attach window
     viewer\handle "echo", (payload) -> { heard: "viewer" }
 
     window\exec_js "window.neutrino.invoke('viewer:echo', {})
       .then(r => { window.__viewer = r.heard })"
 
-    t.check "a second module shares the window without colliding",
+    t.check "a second extension shares the window without colliding",
       (t.wait_until -> (window\eval "window.__viewer") != json.null) and
         (window\eval "window.__viewer") == "viewer" and
         (window\eval "window.__echo") == "hi",
@@ -208,26 +208,26 @@ app\on "ready", ->
       p => { window.__pushed = p.what })"
     archive\broadcast "changed", { what: "entry" }
 
-    t.check "a module pushes a namespaced event",
+    t.check "an extension pushes a namespaced event",
       (t.wait_until -> (window\eval "window.__pushed") != json.null) and
         (window\eval "window.__pushed") == "entry",
       window\eval "window.__pushed"
 
-    t.section "Taking a module down"
+    t.section "Taking an extension down"
 
-    -- A timer the module owns: it has to stop with the module, or an
-    -- unregistered module keeps running.
+    -- A timer the extension owns: it has to stop with the extension, or an
+    -- unregistered extension keeps running.
     archive\set_timer 25, (-> seen.archive_ticks += 1), 25
     async.sleep 120
     ticks_before = seen.archive_ticks
-    t.check "a module timer runs while the module does", ticks_before > 0,
+    t.check "an extension timer runs while the extension does", ticks_before > 0,
       tostring ticks_before
 
-    removed = app\unregister_module "archive"
+    removed = app\unregister_extension "archive"
 
-    t.check "unregistering hands the module back", removed == archive
+    t.check "unregistering hands the extension back", removed == archive
     t.check "and calls on_quit", seen.archive_stopped
-    t.check "and forgets it", (app\module "archive") == nil
+    t.check "and forgets it", (app\extension "archive") == nil
 
     t.check "its routes stop answering",
       (server\fetch "neutrino://archive/entry/42").status == 404
@@ -238,8 +238,8 @@ app\on "ready", ->
     t.check "its timers stop", seen.archive_ticks == ticks_before,
       "#{ticks_before} -> #{seen.archive_ticks}"
 
-    -- The other module never asked to be taken down, so it must be untouched.
-    t.check "another module keeps serving",
+    -- The other extension never asked to be taken down, so it must be untouched.
+    t.check "another extension keeps serving",
       (server\fetch "neutrino://viewer/").status == 200
 
     t.done!

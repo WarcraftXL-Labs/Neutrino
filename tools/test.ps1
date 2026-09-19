@@ -9,7 +9,7 @@
 
 param(
     # Run one suite instead of all of them.
-    [ValidateSet("all", "units", "shell", "log", "loop", "module", "static", "ui-layer", "widgets", "browser", "session", "single-instance")]
+    [ValidateSet("all", "units", "shell", "log", "loop", "extension", "static", "ui-layer", "widgets", "browser", "session", "single-instance")]
     [string]$Only = "all"
 )
 
@@ -37,7 +37,7 @@ $env:LUA_CPATH = "$RocksDir\lib\lua\5.1\?.dll;"
 
 # Cheapest and most local first: when several break at once, the first failure
 # is usually the one worth reading.
-$suites = @("units", "shell", "log", "loop", "module", "static", "ui-layer", "widgets", "browser", "session", "single-instance")
+$suites = @("units", "shell", "log", "loop", "extension", "static", "ui-layer", "widgets", "browser", "session", "single-instance")
 if ($Only -ne "all") { $suites = @($Only) }
 
 $failed = @()

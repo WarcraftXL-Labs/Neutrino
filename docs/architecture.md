@@ -131,11 +131,11 @@ directly would deliver the event before the Lua object exists to receive it.
 ## The custom scheme
 
 `neutrino://` is registered as a standard scheme: it has a real origin, so the
-page gets `localStorage`, `fetch`, modules and the rest, and is treated as
+page gets `localStorage`, `fetch`, extensions and the rest, and is treated as
 secure rather than as mixed content.
 
 The handler factory is registered with an empty domain, so every host under the
-scheme reaches Lua. That is what lets a module own `neutrino://mpq/` as its own
+scheme reaches Lua. That is what lets an extension own `neutrino://mpq/` as its own
 origin while the shell keeps `neutrino://app/`.
 
 Compared with a local HTTP server: no port is opened, so no firewall prompt and
@@ -153,13 +153,13 @@ may contain binary data, and responses can carry custom headers.
 
 ## Modules, and why the framework is not built around them
 
-A module is optional. `App`, `BrowserWindow`, `Server` and `Session` are usable
+An extension is optional. `App`, `BrowserWindow`, `Server` and `Session` are usable
 on their own, and an application that opens one window never has to declare one.
 That is a deliberate refusal to pick an application architecture on the
 developer's behalf.
 
 The obvious candidate was HMVC, since the pieces look the part: per-host routers
-already let a module own `neutrino://mpq/` as its own origin. It was rejected,
+already let an extension own `neutrino://mpq/` as its own origin. It was rejected,
 for a reason specific to this kind of application: **the view does not live in
 Lua.** It lives in the DOM, it is persistent, and it changes by IPC. An MVC on
 the Lua side would be an MVC with no V, and the hierarchical sub-request that
@@ -168,37 +168,37 @@ fragments on every display. In a persistent page, composition happens in the
 component tree. That hierarchy belongs in `src/ui/`, on the browser side of the
 bridge - putting it in the core would be putting it on the wrong side.
 
-What a module is instead is a **boundary**. It claims a name, and the name is
+What an extension is instead is a **boundary**. It claims a name, and the name is
 the whole of what it owns: `neutrino://<name>/` for routes, `<name>:action` for
 IPC channels, `persist:<name>` for a session. Nothing else can serve under that
-origin, and two modules cannot collide in one window.
+origin, and two extensions cannot collide in one window.
 
 Making that boundary real rather than conventional is what earns it a place in
-the core. `App:unregister_module` drops the module's host router, removes its
+the core. `App:unregister_extension` drops its host router, removes its
 handlers from every window it attached to, cancels its timers and closes the
 windows it opened, all while the application keeps running. A convention cannot
 do that; only something that recorded what it claimed can.
 
-The teardown deliberately distinguishes the windows a module *opened* from those
+The teardown deliberately distinguishes the windows an extension *opened* from those
 it was *attached to*. It closes the first and only unwires the second, because a
-shell window hosting three modules must survive the removal of one.
+shell window hosting three extensions must survive the removal of one.
 
-### One window, or one per module
+### One window, or one per extension
 
 Both work, and they are the only two shapes supported.
 
-A module can own its window - `Module:open` puts it on the module's origin, in
-the module's partition, with its handlers installed - or several modules can
-share one window through `Module:attach`, each answering on its own `<name>:`
-channels. Mixing the two is fine: a module attached to a shell window can still
+An extension can own its window - `Extension:open` puts it on its origin, in
+its partition, with its handlers installed - or several extensions can
+share one window through `Extension:attach`, each answering on its own `<name>:`
+channels. Mixing the two is fine: an extension attached to a shell window can still
 open a detached viewer of its own.
 
-Rendering a module inside an `<iframe>` was considered and rejected. It would
+Rendering an extension inside an `<iframe>` was considered and rejected. It would
 give style and script isolation for free, but the bridge is injected into every
 V8 context while `send` and `eval` address `GetMainFrame()`, so pushes from Lua
 would stop at the shell and every page would need a `postMessage` relay. Paying
 for `CefFrameHandler` and that relay to isolate CSS between an application's own
-tools is the wrong trade. A module attached to a shell window therefore
+tools is the wrong trade. An extension attached to a shell window therefore
 contributes to that window's document.
 
 The consequence lands on `src/ui/`: the isolation an iframe would have given has
@@ -206,36 +206,36 @@ to come from scoped components instead. That is a reason for the UI layer to
 exist, not an accident of it.
 
 The other consequence is a constraint worth stating plainly, because nothing
-about it is visible at runtime: **a window has exactly one partition**. A module
+about it is visible at runtime: **a window has exactly one partition**. An extension
 attached to a window it does not own stores through *that* window's session,
 whatever it declared, while its own `session()` keeps answering about its own
-partition. `Module:attach` warns when the two differ rather than letting it be
-discovered later. Per-module isolation is only real in the one-window-per-module
+partition. `Extension:attach` warns when the two differ rather than letting it be
+discovered later. Per-extension isolation is only real in the one-window-per-extension
 shape.
 
 ### Assets: one mechanism, two shapes
 
-Whether a folder of assets belongs to the application or to a module turned out
+Whether a folder of assets belongs to the application or to an extension turned out
 to be the wrong question. The widgets carry their own CSS in their shadow roots,
-so most of what a module would have served no longer exists as a file, and what
+so most of what an extension would have served no longer exists as a file, and what
 remains - the theme, the fonts, the icons - is genuinely shared.
 
 What was missing was lower down: nothing served a file from disk at all. So
 `static` mounts a directory on *a router*, and which router decides which shape
-it is. `server\static` puts it on the application's origin; a module calls the
+it is. `server\static` puts it on the application's origin; an extension calls the
 same thing on its own and its assets leave when it does.
 
 The one thing that separates the two is origins. `neutrino://app/` and
 `neutrino://mpq/` are different origins, and while a stylesheet, an image or a
 font crosses that line freely, a `fetch` or a `<script type="module">` does not -
 the scheme is registered CORS_ENABLED, so those need a header. Passive assets
-can live in one shared folder; imported modules are the case to think about.
+can live in one shared folder; imported extensions are the case to think about.
 
 ### One Server, found rather than passed
 
 The scheme handler is process-wide, so there is one `Server`. `serve.server`
-records it, and a module resolves its router from there instead of being handed
-one. That keeps `app\register_module Mpq` free of plumbing, and keeps the
+records it, and an extension resolves its router from there instead of being handed
+one. That keeps `app\register_extension Mpq` free of plumbing, and keeps the
 free-form path - `server = Neutrino.Server!` at the top of a script - working
 unchanged, since both meet at the same object.
 
@@ -248,8 +248,8 @@ overridden: the handler cannot tell the difference, and neither can the router.
 
 This is the one piece of HMVC worth having on its own merits. It makes a route
 testable without a window, lets a page's content be computed before the window
-exists, and lets one module consume another's output without knowing it is a
-module - without asking anyone to arrange their code as controllers.
+exists, and lets one extension consume another's output without knowing it is a
+an extension - without asking anyone to arrange their code as controllers.
 
 ### Letting content near the filesystem
 
@@ -348,7 +348,7 @@ fail silently and neither is guessable:
 - **`innerHTML` drops them.** Assigning markup that contains
   `<template shadowrootmode>` leaves an inert template: the widget renders with
   no styles and no slots, and nothing is reported. `setHTMLUnsafe` parses them,
-  which is what `nui.html` uses and why fetching a fragment from a module's
+  which is what `nui.html` uses and why fetching a fragment from an extension's
   route works at all.
 - **`cloneNode` drops them too.** Chromium applies a declarative shadow root
   even inside another template's content, so by the time `data-for` clones a
@@ -430,7 +430,7 @@ development and neither reports itself clearly:
 ```
   Lua application
         |
-  Module                                   optional; a boundary over the below
+  Extension                                   optional; a boundary over the below
         |
   BrowserWindow / Server / Router /        src/core/
   Session

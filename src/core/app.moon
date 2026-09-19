@@ -17,7 +17,7 @@ timer = require "core.timer"
 
 ---@class App : EventEmitter
 ---@field state string "init", "initialized", "running", "quitting" or "stopped".
----@field modules Module[] Registered modules.
+---@field extensions Extension[] Registered extensions.
 class App extends EventEmitter
   --- Creates the application.
   ---@param opts table Options passed to the native layer.
@@ -42,7 +42,7 @@ class App extends EventEmitter
 
     @options = opts
     @state = "init"
-    @modules = {}
+    @extensions = {}
 
     @_running = false
     @_initialized = false
@@ -77,57 +77,57 @@ class App extends EventEmitter
   ---@return Server
   server: => servers.current!
 
-  --- Instantiates a module class, registers it and starts it.
+  --- Instantiates an extension class, registers it and starts it.
   --
-  -- Starting registers the module's routes, so a module is serving as soon as
+  -- Starting registers the extension's routes, so an extension is serving as soon as
   -- it is registered. One registered while the application is already running
   -- gets its "ready" straight away rather than never.
-  ---@param module_class table A class deriving from Module.
-  ---@return Module The instance.
-  register_module: (module_class) =>
-    instance = module_class @
+  ---@param extension_class table A class deriving from Extension.
+  ---@return Extension The instance.
+  register_extension: (extension_class) =>
+    instance = extension_class @
 
-    -- The UI runtime answers on ui:state and ui:ready, so a module called "ui"
+    -- The UI runtime answers on ui:state and ui:ready, so an extension called "ui"
     -- would collide with it on every window it attached to.
     if instance.name == "ui"
       error "'ui' is reserved: the UI runtime uses that channel prefix"
 
-    -- Two modules sharing a name would share an origin and an IPC prefix, and
+    -- Two extensions sharing a name would share an origin and an IPC prefix, and
     -- unregistering either would take down the other's routes.
-    for existing in *@modules
+    for existing in *@extensions
       if existing.name == instance.name
-        error "a module named '#{instance.name}' is already registered"
+        error "an extension named '#{instance.name}' is already registered"
 
-    table.insert @modules, instance
+    table.insert @extensions, instance
 
     instance\start! if instance.start
     instance\on_ready! if @state == "running" and instance.on_ready
 
     instance
 
-  --- Takes a module back down and forgets it.
-  -- The module releases its routes, its IPC handlers, its timers and its
-  -- windows; see Module:stop.
-  ---@param target Module|string The module or its name.
-  ---@return Module|nil The module that was removed.
-  unregister_module: (target) =>
+  --- Takes an extension back down and forgets it.
+  -- The extension releases its routes, its IPC handlers, its timers and its
+  -- windows; see Extension:stop.
+  ---@param target Extension|string The extension or its name.
+  ---@return Extension|nil The extension that was removed.
+  unregister_extension: (target) =>
     name = type(target) == "string" and target or target.name
 
-    for index, mod in ipairs @modules
+    for index, mod in ipairs @extensions
       continue unless mod.name == name
 
-      table.remove @modules, index
+      table.remove @extensions, index
       mod\on_quit! if mod.on_quit
       mod\stop! if mod.stop
       return mod
 
     nil
 
-  --- Finds a registered module by name.
+  --- Finds a registered extension by name.
   ---@param name string
-  ---@return Module|nil
-  module: (name) =>
-    for mod in *@modules
+  ---@return Extension|nil
+  extension: (name) =>
+    for mod in *@extensions
       return mod if mod.name == name
     nil
 
@@ -157,7 +157,7 @@ class App extends EventEmitter
     @state = "running"
     @emit "ready"
 
-    for mod in *@modules
+    for mod in *@extensions
       mod\on_ready! if mod.on_ready
 
     @_running = true
@@ -170,10 +170,10 @@ class App extends EventEmitter
     @state = "quitting"
     @emit "quit"
 
-    -- on_quit only: Module:stop closes windows and drops routes, which is what
+    -- on_quit only: Extension:stop closes windows and drops routes, which is what
     -- unregistering needs and what shutting down does not. CEF is on its way
     -- out, so poking it here would be work at best and a crash at worst.
-    for mod in *@modules
+    for mod in *@extensions
       mod\on_quit! if mod.on_quit
 
     cef.lib.neutrino_shutdown!

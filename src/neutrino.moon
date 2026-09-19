@@ -16,7 +16,7 @@ pcall -> io.stdout\setvbuf "line"
   Server: (require "serve.server").Server
   Response: (require "serve.server").Response
   Router: (require "serve.router").Router
-  Module: (require "core.module").Module
+  Extension: (require "core.extension").Extension
   Session: (require "browser.session").Session
   EventEmitter: (require "core.events").EventEmitter
 

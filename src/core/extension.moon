@@ -1,21 +1,29 @@
---- Self-contained parts of an application.
+--- A named scope that claims things and can give them all back.
 --
--- A module is not a required way to build with Neutrino: an application can
--- open a window and register routes without ever declaring one. What a module
--- adds is a boundary. It claims a name, and that name becomes everything it
--- owns:
+-- Nothing here is a required way to build with Neutrino: an application can
+-- open a window and register routes without ever declaring one. What this adds
+-- is a boundary. It claims a name, and that name becomes everything it owns:
 --
 --   neutrino://<name>/   its origin, and the only routes it can serve
 --   "<name>:action"      the IPC channels it answers on
 --   "persist:<name>"     its session, when it asks for one
 --
--- Because the boundary is real rather than a convention, a module can be taken
--- back down at runtime: App:unregister_module drops its routes, removes its IPC
+-- Because the boundary is real rather than a convention, one can be taken back
+-- down at runtime: App:unregister_extension drops its routes, removes its IPC
 -- handlers from every window it reached, cancels its timers and closes the
--- windows it opened. That is what lets one shell host several tools that do not
--- know about each other.
+-- windows it opened. That releasing is the whole point; everything else here
+-- exists so that `stop` has something to release.
 --
---     class Mpq extends Module
+-- It is called an extension rather than a module because a framework should not
+-- name the shape of the application built on it. "Module" invited an
+-- architecture - one that WowLabs, the only application on this framework, does
+-- not use - and the invitation was written into the code: `default_name` used
+-- to strip a "Module" suffix, expecting classes called `ArchiveModule`.
+--
+-- Two of them can share one window, which is what `attach` is for; one can own
+-- its own, which is what `open` is for. Neither is assumed.
+--
+--     class Mpq extends Extension
 --       name: "mpq"
 --       partition: true          -- persist:mpq
 --
@@ -27,53 +35,53 @@
 --         @handle "open", (payload) -> @open_archive payload.path
 --         @window = @open title: "Archives"
 --
---     app\register_module Mpq
----@module core.module
+--     app\register_extension Mpq
+---@module core.extension
 
 servers = require "serve.server"
 timer = require "core.timer"
 log = require "util.log"
 BrowserWindow = (require "browser.window").BrowserWindow
 
---- Derives a namespace from a class name, so a module that does not declare
---- one still gets something predictable rather than "UnnamedModule".
+--- Derives a namespace from a class name, so one that does not declare a name
+--- still gets something predictable rather than "UnnamedExtension".
 --
--- `MpqBrowser` becomes "mpq-browser", `ArchiveModule` becomes "archive".
+-- `MpqBrowser` becomes "mpq-browser", `ArchiveExtension` becomes "archive".
 ---@param class_name? string
 ---@return string
 default_name = (class_name) ->
-  return "module" unless class_name
+  return "extension" unless class_name
 
-  name = class_name\gsub "Module$", ""
+  name = class_name\gsub "Extension$", ""
   name = name\gsub "(%l)(%u)", "%1-%2"
   name = name\lower!
 
-  name != "" and name or "module"
+  name != "" and name or "extension"
 
----@class Module
----@field app App The application that owns this module.
----@field name string The module's namespace.
+---@class Extension
+---@field app App The application that owns this extension.
+---@field name string Its namespace.
 ---@field server Server The server its routes live on.
 ---@field router Router Routes for neutrino://<name>/.
 ---@field origin string "neutrino://<name>/".
----@field windows BrowserWindow[] Windows this module opened.
+---@field windows BrowserWindow[] Windows it opened itself.
 ---@field started boolean
-class Module
-  --- The session the module's windows use.
+class Extension
+  --- The session its windows use.
   -- A string names a partition; `true` means "persist:<name>", which is the
-  -- usual choice for a module with state of its own. Declared as a class field.
+  -- usual choice for an extension with state of its own. Declared as a class field.
   partition: false
 
-  --- Creates the module and binds it to an application.
-  -- App:register_module does this; construct one directly only to use a module
+  --- Creates the extension and binds it to an application.
+  -- App:register_extension does this; construct one directly only to use an extension
   -- outside an application.
-  ---@param app? App The application that owns this module.
+  ---@param app? App The application that owns this extension.
   new: (app) =>
     @app = app
 
     -- A subclass usually declares `name` as a class field. Falling back to the
-    -- class name keeps a module that forgot from colliding with every other
-    -- module that forgot.
+    -- class name keeps an extension that forgot from colliding with every other
+    -- extension that forgot.
     @name or= default_name @@__name
 
     @server = servers.current!
@@ -96,17 +104,17 @@ class Module
   -- HOOKS  (subclasses override these; the defaults do nothing)
   -- ═══════════════════════════════════════════════════════════════════════════
 
-  --- Registers the module's routes. Called by start().
-  -- The router is the module's own, already bound to neutrino://<name>/, so a
+  --- Registers its routes. Called by start().
+  -- The router is its own, already bound to neutrino://<name>/, so a
   -- path registered here is relative to that origin.
-  ---@param router Router The module's router.
+  ---@param router Router The extension's router.
   routes: (router) =>
 
-  --- Runs when the application is ready, or immediately when the module is
+  --- Runs when the application is ready, or immediately when the extension is
   --- registered after that. Subclasses open their windows here.
   on_ready: =>
 
-  --- Runs when the application is shutting down, or when the module is
+  --- Runs when the application is shutting down, or when the extension is
   --- unregistered. Subclasses release what the framework cannot see.
   on_quit: =>
 
@@ -114,22 +122,22 @@ class Module
   -- LIFECYCLE
   -- ═══════════════════════════════════════════════════════════════════════════
 
-  --- Brings the module up by registering its routes.
+  --- Brings the extension up by registering its routes.
   --- Calling it twice is a no-op.
-  ---@return Module self, for chaining.
+  ---@return Extension self, for chaining.
   start: =>
     return @ if @started
     @started = true
     @routes @router
     @
 
-  --- Takes the module back down.
+  --- Takes the extension back down.
   --
-  -- Everything the module claimed is released: its routes, its IPC handlers on
+  -- Everything the extension claimed is released: its routes, its IPC handlers on
   -- every window it attached to, its timers, and the windows it opened itself.
   -- Windows it was merely attached to stay open, because it does not own them -
   -- only its handlers are removed.
-  ---@return Module self, for chaining.
+  ---@return Extension self, for chaining.
   stop: =>
     return @ unless @started
     @started = false
@@ -141,12 +149,12 @@ class Module
 
     timer.stop id for id in *@_timers
 
-    -- Forced, because a module being unregistered has already had its say in
+    -- Forced, because an extension being unregistered has already had its say in
     -- on_quit; a close guard vetoing here would leave it half removed.
     for window in *@windows
       window\close true unless window.closed
 
-    -- The module owns the origin outright, so this drops its routes and nobody
+    -- The extension owns the origin outright, so this drops its routes and nobody
     -- else's.
     @server\drop_host @name
 
@@ -159,31 +167,31 @@ class Module
   -- NAMESPACE
   -- ═══════════════════════════════════════════════════════════════════════════
 
-  --- Builds a URL under the module's own origin.
+  --- Builds a URL under its own origin.
   ---@param path? string Path, with or without a leading slash.
   ---@return string
   url: (path = "/") =>
     path = "/#{path}" unless path\sub(1, 1) == "/"
     @origin\sub(1, -2) .. path
 
-  --- Prefixes an action with the module's namespace.
+  --- Prefixes an action with its namespace.
   ---@param action string
   ---@return string channel "<name>:<action>".
   channel: (action) => "#{@name}:#{action}"
 
-  --- The partition name the module's windows use.
+  --- The partition name its windows use.
   ---@return string "" for the default session.
   partition_name: =>
     return "persist:#{@name}" if @partition == true
     return @partition if type(@partition) == "string"
     ""
 
-  --- Explains why a window will not store through the module's session, or nil
+  --- Explains why a window will not store through its session, or nil
   --- when it will.
   --
-  -- A window has exactly one partition, so a module attached to somebody else's
-  -- window stores through that window's session no matter what it declared. The
-  -- module's own `session()` still answers about its own partition, so the two
+  -- A window has exactly one partition, so an extension attached to somebody
+  -- else's window stores through that window's session no matter what it
+  -- declared. `partition_name` still answers with what it asked for, so the two
   -- diverge - which is worth saying out loud rather than leaving to be
   -- discovered later.
   ---@param window BrowserWindow
@@ -193,13 +201,13 @@ class Module
     return nil if wanted == "" or not window
     return nil if window.partition == wanted
 
-    "module '#{@name}' expects partition '#{wanted}' but the window it " ..
+    "extension '#{@name}' expects partition '#{wanted}' but the window it " ..
       "attached to uses '#{window.partition}'; the page stores through the " ..
       "window's"
 
   --- Runs a request through the routers and hands the reply back to Lua.
-  -- A bare path is resolved against the module's own origin, so a module can
-  -- fetch its own routes; an absolute URL reaches any module.
+  -- A bare path is resolved against its own origin, so an extension can
+  -- fetch its own routes; an absolute URL reaches any extension.
   ---@param url string Path or absolute URL.
   ---@param opts? table Passed to Server:fetch. May be the callback.
   ---@param callback? fun(reply: table)
@@ -215,11 +223,11 @@ class Module
   --- Registers an IPC handler, reachable from the page as
   --- `neutrino.invoke("<name>:<action>")`.
   --
-  -- The handler is installed on every window the module is attached to, now and
+  -- The handler is installed on every window the extension is attached to, now and
   -- later. The namespace is what lets two modules share one window.
-  ---@param action string Action name, without the module prefix.
+  ---@param action string Action name, without the extension prefix.
   ---@param handler fun(payload: any, window: BrowserWindow): any
-  ---@return Module self, for chaining.
+  ---@return Extension self, for chaining.
   handle: (action, handler) =>
     @_handlers[action] = handler
 
@@ -229,10 +237,10 @@ class Module
 
     @
 
-  --- Installs the module's handlers on a window it did not open.
+  --- Installs its handlers on a window it did not open.
   -- This is how a shell window hosts several modules at once.
   ---@param window BrowserWindow
-  ---@return Module self, for chaining.
+  ---@return Extension self, for chaining.
   attach: (window) =>
     return @ unless window and not window.closed
 
@@ -248,9 +256,9 @@ class Module
 
     @
 
-  --- Removes the module's handlers from a window and forgets it.
+  --- Removes its handlers from a window and forgets it.
   ---@param window BrowserWindow
-  ---@return Module self, for chaining.
+  ---@return Extension self, for chaining.
   detach: (window) =>
     for index, attached in ipairs @_attached
       continue unless attached == window
@@ -264,10 +272,10 @@ class Module
 
     @
 
-  --- Opens a window belonging to the module.
+  --- Opens a window belonging to the extension.
   --
-  -- The module's origin, partition and handlers are applied unless the options
-  -- say otherwise, and the window closes with the module.
+  -- The extension's origin, partition and handlers are applied unless the options
+  -- say otherwise, and the window closes with the extension.
   ---@param opts? table Window options, as BrowserWindow takes them.
   ---@return BrowserWindow
   open: (opts = {}) =>
@@ -283,18 +291,18 @@ class Module
     window\on "closed", -> @_forget window
     window
 
-  --- Pushes an event to every window the module is attached to, received by
+  --- Pushes an event to every window the extension is attached to, received by
   --- `neutrino.on("<name>:<event>")`.
-  ---@param event string Event name, without the module prefix.
+  ---@param event string Event name, without the extension prefix.
   ---@param payload? any Any JSON-encodable value.
-  ---@return Module self, for chaining.
+  ---@return Extension self, for chaining.
   broadcast: (event, payload) =>
     channel = @channel event
     for window in *@_attached
       window\send channel, payload unless window.closed
     @
 
-  --- Schedules a timer that is cancelled when the module stops.
+  --- Schedules a timer that is cancelled when the extension stops.
   ---@param delay_ms integer
   ---@param callback function
   ---@param interval_ms? integer Repeat interval; omit for a one-shot timer.
@@ -322,4 +330,4 @@ class Module
         table.remove @_attached, index
         break
 
-{ :Module, :default_name }
+{ :Extension, :default_name }

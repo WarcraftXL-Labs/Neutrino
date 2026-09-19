@@ -127,6 +127,26 @@ t.check "including a string with placeholders",
 t.check "a key neither language has is still itself",
   (i18n.t "actions.explode") == "actions.explode", i18n.t "actions.explode"
 
+-- The bundle handed to a page is the fallback with the translations laid over
+-- it, so a branch the language has nothing in is still a branch: a page
+-- reading `t.grid.of` against a bundle with no `grid` does not get an empty
+-- string, it throws, and takes every binding after it down with it.
+view = i18n.bundle!
+t.check "the bundle for a page carries the fallback underneath",
+  view.grid and view.grid.of == "{shown} of {total}",
+  view.grid and tostring view.grid.of or "no grid branch"
+t.check "with the translations laid over it",
+  view.actions and view.actions.save == "Enregistrer",
+  view.actions and tostring view.actions.save or "no actions branch"
+
+-- Building that view must not write into the language it was laid over.
+-- Sharing a sub-table rather than copying it did exactly that: asking for the
+-- French view rewrote the English bundle in place.
+i18n.use "en"
+t.check "and building it left the fallback alone",
+  (i18n.t "actions.save") == "Save", i18n.t "actions.save"
+i18n.use "fr"
+
 i18n.set_fallback nil
 i18n.use "fr"
 t.check "with no fallback the key shows through",

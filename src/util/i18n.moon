@@ -68,7 +68,12 @@ seen = {}
 ---@private
 merge = (target, incoming) ->
   for key, value in pairs incoming
-    if type(value) == "table" and type(target[key]) == "table"
+    if type(value) == "table"
+      -- A fresh table, never the one that came in. Assigning the reference
+      -- would make two bundles share a branch, and the next merge into either
+      -- would quietly rewrite the other: building the French view used to
+      -- write French into the English bundle it was laid over.
+      target[key] = {} unless type(target[key]) == "table"
       merge target[key], value
     else
       target[key] = value
@@ -157,8 +162,30 @@ M.use = (tag) ->
 M.current = -> current
 
 --- The bundle in use, for handing to the store.
+--
+-- The fallback underneath it, not the chosen language on its own. A partly
+-- translated language is the normal case, and a page reading `t.home.title`
+-- against a bundle with no `home` branch does not get an empty string - it
+-- throws, and takes every binding after it down with it.
+--
+-- Merged here, so what the page holds has the shape of the fallback with the
+-- translations laid over it. That is also exactly what `t` answers, so the
+-- markup and Lua cannot disagree about what a key resolves to.
 ---@return table
-M.bundle = -> current and bundles[current] or {}
+M.bundle = ->
+  chosen = current and bundles[current] or {}
+  under = fallback and bundles[fallback]
+
+  return chosen unless under and under != chosen
+
+  merged = {}
+  merge merged, under
+  merge merged, chosen
+  merged
+
+--- The chosen language's own strings, without the fallback under them.
+---@return table
+M.own = -> current and bundles[current] or {}
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Lookup
@@ -217,7 +244,7 @@ fill = (text, vars, key) ->
 M.t = (key, vars) ->
   return "" unless type(key) == "string" and key != ""
 
-  found = reach M.bundle!, key
+  found = reach M.own!, key
   found = reach (fallback and bundles[fallback]), key if found == nil
 
   if found == nil
@@ -255,10 +282,13 @@ M.missing = ->
 -- The other direction, and the one that finds strings left behind by an
 -- interface that moved on. Only meaningful after a run that exercised the
 -- whole interface, so it reports rather than fails.
+--
+-- A language's own strings, not the merged view: every key the fallback holds
+-- would otherwise count as unused in every other language.
 ---@param tag? string Which bundle to examine. Defaults to the one in use.
 ---@return string[]
 M.unused = (tag) ->
-  bundle = tag and bundles[tag] or M.bundle!
+  bundle = tag and bundles[tag] or M.own!
   leftovers = {}
 
   walk = (node, prefix) ->
@@ -290,11 +320,13 @@ M.unused = (tag) ->
 -- in English are two different words in German, and merging them would be the
 -- bug. So this reports and never refuses.
 --
--- Only groups of two or more, sorted, with the keys in each sorted too.
+-- Only groups of two or more, sorted, with the keys in each sorted too. A
+-- language's own strings, for the same reason `unused` looks at those: against
+-- the merged view every untranslated key would duplicate its own fallback.
 ---@param tag? string Which bundle to examine. Defaults to the one in use.
 ---@return table[] groups { text = "Save", keys = { "a.save", "b.save" } }
 M.duplicates = (tag) ->
-  bundle = tag and bundles[tag] or M.bundle!
+  bundle = tag and bundles[tag] or M.own!
   by_text = {}
 
   walk = (node, prefix) ->

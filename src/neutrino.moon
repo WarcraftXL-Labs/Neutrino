@@ -37,6 +37,7 @@ pcall -> io.stdout\setvbuf "line"
   json: require "util.json"
   log: require "util.log"
   fs: require "util.fs"
+  zip: require "util.zip"
 
   -- Low-level escape hatches. Reach for these only when the high-level API
   -- does not cover what you need.

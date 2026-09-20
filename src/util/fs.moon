@@ -206,11 +206,31 @@ M.remove = (p) ->
 ---@return boolean|nil ok, string|nil err
 M.copy = (source, target) -> file.copy source, target
 
+--- How large a file is, in bytes, without reading it.
+-- Zero for anything that is not a file, so a caller adding up a folder does
+-- not have to guard every entry.
+---@param p string
+---@return integer
+M.size = (p) ->
+  ok, bytes = pcall path.getsize, p
+  (ok and type(bytes) == "number") and bytes or 0
+
 --- The files directly inside a directory.
+--
+-- Files, and only files. A caller that wants the subdirectories wants `dirs`:
+-- filtering this list with `is_dir` answers nothing, because a directory was
+-- never in it.
 ---@param p string
 ---@param pattern? string Shell pattern, such as "*.mpq".
 ---@return string[]
 M.list = (p, pattern) -> dir.getfiles p, pattern
+
+--- The directories directly inside a directory.
+-- The other half of `list`, and the one an application needs whenever a folder
+-- is the register: projects under a root, profiles under a folder.
+---@param p string
+---@return string[]
+M.dirs = (p) -> dir.getdirectories p
 
 --- Every file under a directory, at any depth.
 ---@param p string

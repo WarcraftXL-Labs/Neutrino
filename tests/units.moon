@@ -104,6 +104,94 @@ t.check "a copy leaves both",
   (fs.read "#{scratch}/source") == "bytes" and
     (fs.read "#{scratch}/copied") == "bytes"
 
+-- `list` is files and `dirs` is directories, because the underlying listing
+-- answers one or the other and never both. Filtering `list` with `is_dir`
+-- answers nothing at all, which is silent: an application listing the projects
+-- under a root that way finds none and shows an empty picker.
+fs.make_dir "#{scratch}/one"
+fs.make_dir "#{scratch}/two"
+
+listed = fs.list scratch
+folders = fs.dirs scratch
+
+t.check "listing a folder gives its files and not its subfolders",
+  #[1 for entry in *listed when fs.is_dir entry] == 0,
+  "#{#listed} entries"
+t.check "and dirs gives the subfolders", #folders == 2, "#{#folders} entries"
+t.check "by name", ((fs.basename folders[1]) == "one") and
+  ((fs.basename folders[2]) == "two"),
+  "#{fs.basename folders[1]}, #{fs.basename folders[2]}"
+
+t.check "a file's size is known without reading it",
+  (fs.size "#{scratch}/source") == 5, tostring fs.size "#{scratch}/source"
+t.check "and what is not a file is nothing rather than an error",
+  (fs.size "#{scratch}/never-existed") == 0 and (fs.size scratch) == 0
+
+-- ═══════════════════════════════════════════════════════════════════════════
+
+t.section "Zip"
+
+zip = Neutrino.zip
+
+-- Asserted against the bytes that come back out, never against the archive
+-- existing: a zip with a wrong CRC or a wrong offset is a file of the right
+-- size that every archiver refuses.
+archive = "#{scratch}/archive.zip"
+
+-- Twice the deflate window, so the compressed form is not accidentally the
+-- stored one, and a second entry small enough that storing it is right.
+big = string.rep "WDBC\0\0\0\1the same row again and again", 4000
+fs.make_dir "#{scratch}/tree/inner"
+fs.write "#{scratch}/tree/inner/big.bin", big
+fs.write "#{scratch}/tree/note.txt", "hello"
+
+-- Named first, because without it everything below still passes except the
+-- compression, and "method 0" is a long way from "the rock is not installed".
+t.check "the deflate rock is installed", zip.compresses!,
+  "libdeflate is missing: run tools/get-deps.ps1 -Only rocks"
+
+count, pack_err = zip.pack archive, "#{scratch}/tree"
+t.check "a folder packs", count == 2, tostring pack_err
+
+entries = zip.entries archive
+t.check "and the directory names what went in", entries != nil and #entries == 2,
+  entries and "#{#entries} entries" or "no directory"
+
+-- Forward slashes, relative to the folder. An archive of absolute paths
+-- extracts onto the machine it came from and nowhere else.
+names = table.concat [entry.name for entry in *entries], ","
+t.check "under names relative to it, with forward slashes",
+  names == "inner/big.bin,note.txt", names
+
+t.check "the big one was compressed rather than stored",
+  entries[1].method == 8 and entries[1].compressed < entries[1].size,
+  "method #{entries[1].method}, #{entries[1].compressed} of #{entries[1].size}"
+
+-- Compressing something incompressible makes it bigger, and the format allows
+-- either method per entry, so there is no reason to write the worse one.
+t.check "and the tiny one was stored, because deflating it would not help",
+  entries[2].method == 0, "method #{entries[2].method}"
+
+t.check "an entry reads back byte for byte", (zip.read archive, "inner/big.bin") == big,
+  "#{#((zip.read archive, 'inner/big.bin') or '')} of #{#big}"
+t.check "and so does a stored one",
+  (zip.read archive, "note.txt") == "hello",
+  tostring zip.read archive, "note.txt"
+
+missing_data, missing_err = zip.read archive, "nowhere.txt"
+t.check "asking for what is not in it fails rather than raising",
+  missing_data == nil and missing_err != nil, tostring missing_err
+
+not_an_archive, archive_err = zip.entries "#{scratch}/source"
+t.check "and so does a file that is not an archive",
+  not_an_archive == nil and archive_err != nil, tostring archive_err
+
+-- The CRC is the whole of what an archiver checks before it hands the bytes
+-- over, so the known answer is worth pinning.
+t.check "the CRC-32 is the one every archiver expects",
+  (zip.crc32 "123456789") == 0xCBF43926,
+  string.format "%08X", zip.crc32 "123456789"
+
 -- ═══════════════════════════════════════════════════════════════════════════
 
 t.section "Where the application's files are"

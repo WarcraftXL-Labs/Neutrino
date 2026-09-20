@@ -41,7 +41,8 @@ $Rocks = @(
     "etlua",              # templates for widgets
     "penlight",           # paths, directories, files
     "inspect",            # readable tables, for logs
-    "lsqlite3complete"    # SQLite, amalgamation included
+    "lsqlite3complete",   # SQLite, amalgamation included
+    "libdeflate"          # DEFLATE, in pure Lua - util/zip writes with it
 )
 
 $RootDir = Resolve-Path (Join-Path $PSScriptRoot "..")

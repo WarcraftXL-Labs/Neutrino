@@ -29,13 +29,18 @@ if (-not (Test-Path $DistDir)) {
     exit 1
 }
 
-# Named rather than defaulted: there is no example application in the tree yet,
-# so any default would be a guess. Listing what is there beats guessing wrong.
+# If dist contains one top-level Lua script, use it; if it contains several,
+# ask the caller to choose rather than silently running the wrong application.
 if (-not $Script) {
-    Write-Host "Which script? Available in dist\:" -ForegroundColor Yellow
-    Get-ChildItem -Path $DistDir -Filter "*.lua" |
-        ForEach-Object { Write-Host "  $($_.Name)" }
-    exit 1
+    $AvailableScripts = @(Get-ChildItem -Path $DistDir -Filter "*.lua" -File)
+    if ($AvailableScripts.Count -eq 1) {
+        $Script = $AvailableScripts[0].Name
+        Write-Host "Running $Script" -ForegroundColor DarkGray
+    } else {
+        Write-Host "Which script? Available in dist\:" -ForegroundColor Yellow
+        $AvailableScripts | ForEach-Object { Write-Host "  $($_.Name)" }
+        exit 1
+    }
 }
 
 $ScriptPath = Join-Path $DistDir $Script

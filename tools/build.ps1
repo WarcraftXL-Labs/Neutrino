@@ -36,7 +36,9 @@ New-Item -ItemType Directory -Path $BinDir | Out-Null
 # --- Compile MoonScript -----------------------------------------------------
 
 $LuaExe = Join-Path $DepsDir "luajit\bin\luajit.exe"
-$MooncFile = Join-Path $RocksDir "lib\luarocks\rocks-5.1\moonscript\0.7.0-1\bin\moonc"
+
+. (Join-Path $PSScriptRoot "moonscript.ps1")
+$MooncFile = Get-MooncFile -RocksDir $RocksDir
 
 $env:LUA_PATH = "$RocksDir\share\lua\5.1\?.lua;$RocksDir\share\lua\5.1\?\init.lua;;;"
 $env:LUA_CPATH = "$RocksDir\lib\lua\5.1\?.dll;;;"

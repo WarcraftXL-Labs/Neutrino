@@ -99,7 +99,8 @@ if (-not (Test-Path $EntryPath)) {
 }
 
 $LuaExe = Join-Path $DepsDir "luajit\bin\luajit.exe"
-$MooncFile = Join-Path $RocksDir "lib\luarocks\rocks-5.1\moonscript\0.7.0-1\bin\moonc"
+. (Join-Path $PSScriptRoot "moonscript.ps1")
+$MooncFile = Get-MooncFile -RocksDir $RocksDir
 
 # --- Lay out the folder -----------------------------------------------------
 
